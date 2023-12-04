@@ -1,15 +1,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Advent of Code Christmas Challenge Day 1 - Part II
 ;
 ; @brief    Take an input file and scan each line for first and last integers
-;           and adds them together and prints the sum.
-;
-;           Part II - include string digits in calculation.
+;           and adds them together and prints the sum. Include strings that 
+;           spell out single-digit numbers in calculation.
 ;
 ; @file         solution.nasm
 ; @date         03 Dec 2023
 ; @author       upsetrobot
 ; @copyright    Copyright (c) 2023
-;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %define STDIN   0

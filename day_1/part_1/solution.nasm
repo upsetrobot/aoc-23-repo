@@ -1,4 +1,5 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Advent of Code Christmas Challenge Day 1 - Part I
 ;
 ; @brief    Take an input file and scan each line for first and last integers
 ;           and adds them together and prints the sum.
@@ -7,7 +8,6 @@
 ; @date         02 Dec 2023
 ; @author       upsetrobot
 ; @copyright    Copyright (c) 2023
-;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %define STDIN   0

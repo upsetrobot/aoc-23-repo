@@ -1,13 +1,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+; Advent of Code Christmas Challenge Day 2 - Part I
 ;
-; @brief    Take an input file and scan each line for first and last integers
-;           and adds them together and prints the sum.
+; @brief    Take an input file and sum all game IDs of games that have values 
+;           for red, green, and blue that are below maximums in assignement 
+;           and print the sum.
 ;
 ; @file         solution.nasm
-; @date         02 Dec 2023
+; @date         03 Dec 2023
 ; @author       upsetrobot
 ; @copyright    Copyright (c) 2023
-;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 %define STDIN   0

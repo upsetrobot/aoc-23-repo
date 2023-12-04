@@ -1,8 +1,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Advent of Code Christmas Challenge Day 2 - Part II
+; Advent of Code Christmas Challenge Day 3 - Part II
 ;
-; @brief    Take an input file and sum all products of maximum possible values 
-;           for red, green, and blue given each games data and print the sum. 
+; @brief    Take an input file and sum all products where two numbers are 
+;           adjacent to an * symbol and print the sum.
 ;
 ; @file         solution.nasm
 ; @date         03 Dec 2023
@@ -49,6 +49,12 @@ struc sb
 
 endstruc
 
+; Global constants.
+section .rodata
+
+    msg         db  "Total Sum: %lld", 10, 0
+    error_msg   db  "Error", 0
+    filename    db  "input.txt", 0
 
 
 ; Global uninitialized variables.
@@ -63,12 +69,8 @@ section .bss
 ; Global initialized variables.
 section .data
 
-    msg         db  "Total Sum: %lld", 10, 0
-    error_msg   db  "Error", 0
-    filename    db  "input.txt", 0
-    string      db  "Game 12244545: 1 red, 5 blue, 1 green; 16 blue, 3 red; 6 blue, 5 red; 4 red, 7 blue, 1 green"
 
-
+; Code.
 section .text
 
     global main
@@ -80,41 +82,18 @@ section .text
     main:
         push rbp
 
+        mov rdi, filename
         call getFile
 
         test eax, eax
         js .error
 
-        mov rcx, [buf_ptr]
-        xor r8, r8
-
-        .loop:
-            
-            mov rdi, rcx
-            call getNextLine
-
-            test rax, rax
-            jz .lastLine
-
-            push rax
-            push r8
-            call getSumOfLine
-
-            pop r8
-            pop rcx
-            add r8, rax
-            jmp .loop
-
-        .lastLine:
-            push r8
-            call getSumOfLine
-
-            pop r8
-            add r8, rax
+        mov rdi, [buf_ptr]
+        call sumFile
 
         mov rdi, msg
-        mov rsi, r8
-        call printf 
+        mov rsi, rax
+        call printf
 
         mov rdi, [buf_ptr]
         call free
@@ -134,13 +113,13 @@ section .text
             ret
 
 
+    ; int getFile(char* filename);
     ; ret 0 on success; else ret -1.
     getFile:
         push rbp
 
         ; Open file.
         ; int open(const char *pathname, int flags, mode_t mode);
-        mov rdi, filename
         xor esi, esi
         mov rdx, 0777
         mov rax, SYS_OPEN
@@ -220,135 +199,227 @@ section .text
             ret
 
 
-    ; char* getNextLine(char* buf);
-    ; Returns 0 if no more lines.
-    getNextLine:
+    ; int sumFile(char* buffer);
+    sumFile:
         push rbp
-
+        push r15
+        push r14
+        push r13
+        push r12
+        push rbx
+        
+        ; Get line length (including newline).
         xor rcx, rcx
+        not rcx
 
         .loop:
-
-            cmp byte [rdi + rcx], 0
-            je .error
-
-            cmp byte [rdi + rcx], 10
-            je .found
-
             inc rcx
+            mov dl, 10
+            mov al, [rdi + rcx]
+            cmp al, dl
+            jne .loop
+
+        inc rcx
+
+        ; Scan string for digit.
+        ; Do not need to account for the first character based on input.
+        ; Need pointers to beginning and end of memory block.
+
+        xor rbx, rbx            ; Sum.
+        mov r12, rdi            ; First char.
+        mov r13, rcx            ; Line len.
+
+        ; Scan for *.
+        .loop:
+            mov al, [rdi]
+            cmp al, '*'
+            je .found
+            
+            inc rdi
             jmp .loop
 
         .found:
-            mov byte [rdi + rcx], 0
+            ; Check above.
+            .above:
+                ; Check if line above.
+                mov rcx, rdi
+                ; dec rcx
+                sub rcx, r12
+                cmp rcx, r13
+                jl .left
+                
+                ; Scan line above.
+                mov rcx, 3
+                mov rsi, rdi
+                sub rsi, r13
 
-            cmp byte [rdi + rcx + 1], 0
-            je .error
+                mov al, [rsi]
+                sub al, '0'
+                js .notMiddle
 
-            mov rax, rdi
-            add rax, rcx
-            inc rax
-            jmp .end
+                cmp al, 10
+                jge .notMiddle
 
-        .error:
-            xor rax, rax
+                .middle:
+                    dec rsi
+                    cmp byte [rsi], '.'
+                    je .scan
 
-        .end:
-            pop rbp
-            ret
+                    cmp byte [rsi], 10
+                    je .scan 
+
+                    jmp .middle
+
+                .notMiddle:
+                    cmp byte [rsi], '.'
+                    je .notLeft
+
+                    cmp byte [rsi], 10
+                    je .notLeft
+
+                    
 
 
-    ; int getSumOfLine(char* line);
-    getSumOfLine:
-        push rbp
+                .scan:
+                    mov rdi, rsi
+                    call scanNumber
+                    add rbx, rax
+                    
 
-        xor r8, r8
-        xor r9, r9
-        xor r10, r10
+            ; Check left.
+            .left:
 
-        ; Okay return ID if game possible; otherwise return 0.
-        ; Need to parse game stats.
-        ; can use scanf or just write a way to parse game ID.
-        push r8
-        push r9
-        push r10
-        call scanNumber
-        
-        pop r10
-        pop r9
-        pop r8
-        
-        ; Find colon.
-        .loop:
-            inc rdi
-            mov al, [rdi]
-            test al, al
-            jz .error
+            ; Check right.
+            .right:
 
-            cmp al, ':'
-            jne .loop
 
-        .top:
-            push r8
-            push r9
-            push r10
+            ; Check below.
+            .below:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        .next:
             call scanNumber
 
-            pop r10
-            pop r9
-            pop r8
             test rax, rax
-            jz .finish
+            jz .end
 
-        .loop1:
+            mov r14, rsi            ; Current first digit.
+            mov r15, rdi            ; Current last digit.
+            push rax                ; Current value.
+
+            ; Check if line above.
+            mov rcx, r14
+            dec rcx
+            sub rcx, r12
+            cmp rcx, r13
+            jl .left
+            
+            ; Scan line above.
+            mov rcx, r15
+            sub rcx, r14
+            add rcx, 3
+            mov rdi, r14
+            dec rdi
+            sub rdi, r13
+
+            .loop1:
+                cmp byte [rdi], '.'
+                je .inc
+                
+                cmp byte [rdi], 10
+                je .inc
+                jmp .found
+
+                .inc:
+                    inc rdi
+                    loop .loop1
+
+            ; Scan left.
+            .left:
+                cmp byte [r14 - 1], '.'
+                je .right
+
+                cmp byte [r14 - 1], 10
+                jne .found
+
+            ; Scan right.
+            .right:
+                cmp byte [r15 + 1], '.'
+                je .below
+
+                cmp byte [r15 + 1], 10
+                jne .found
+
+            ; Scan line below.
+            .below:
+                mov rcx, r12
+                add rcx, [filesize]
+                sub rcx, r15
+                cmp rcx, r13
+                jl .notFound
+                
+                mov rcx, r15
+                sub rcx, r14
+                add rcx, 3
+                mov rdi, r14
+                dec rdi
+                add rdi, r13
+
+                .loop2:
+                    cmp byte [rdi], '.'
+                    je .inc1
+                    
+                    cmp byte [rdi], 10
+                    je .inc1
+                    jmp .found
+
+                    .inc1:
+                        inc rdi
+                        loop .loop2
+
+                jmp .notFound
+
+        .found:
+            pop rax
+            add rbx, rax
+            mov rdi, r15
             inc rdi
-            mov dl, [rdi]
-            cmp dl, 'r'
-            je .red
+            jmp .next
 
-            cmp dl, 'g'
-            je .green
-
-            cmp dl, 'b'
-            je .blue 
-            jmp .loop1
-
-        .red:
-            cmp rax, r8
-            jle .top
+        .notFound:
+            pop rax
+            mov rdi, r15
+            inc rdi
+            jmp .next
             
-            mov r8, rax
-            jmp .top
-
-        .green:
-            cmp rax, r9
-            jle .top
-            
-            mov r9, rax
-            jmp .top
-
-        .blue:
-            cmp rax, r10
-            jle .top
-            
-            mov r10, rax
-            jmp .top
-
-        .finish:
-            mov rax, r8
-            mul r9
-            xor rdx, rdx
-            mul r10
-            jmp .end
-
-        .error:
-            xor rax, rax
-
         .end:
+            mov rax, rbx
+            pop rbx
+            pop r12
+            pop r13
+            pop r14
+            pop r15
             pop rbp
             ret
 
-
     ; int scanNumber(char* findNumStr);
+    ; Returns value in rax, first digit ptr in rsi, last digit in rdi.
     scanNumber:
         push rbp
 
@@ -373,6 +444,8 @@ section .text
 
             cmp al, 10
             jge .loop
+
+        mov rsi, rdi
 
         ; Count digits.
         .loop1:
