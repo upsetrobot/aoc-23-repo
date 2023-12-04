@@ -91,6 +91,10 @@ section .text
         mov rdi, [buf_ptr]
         call sumFile
 
+        ; mov rdi, [buf_ptr]
+        ; add rdi, 117
+        ; call sumScoreOfLine
+
         mov rdi, msg
         mov rsi, rax
         call printf
@@ -212,17 +216,19 @@ section .text
         xor rcx, rcx        ; Index.
 
         .loop:
-            cmp rcx, 1
+            cmp rcx, 193
             jz .end
 
             mov rax, r12
-            imul rcx
+            mul rcx
             mov rdi, r13
             add rdi, rax
 
             push rcx        ; Save index.
+            push rdi
             call sumScoreOfLine
 
+            pop rdi
             pop rcx
             inc rcx
             add r14, rax
@@ -246,12 +252,14 @@ section .text
         
         mov r12, 117        ; Line length (including newline)
         mov r13, rdi        ; Base ptr.
-        xor r14, r14        ; Score.
+        mov r14, 1          ; Score.
         
+        push rdi
         call getSumOfLine
+        pop rdi
 
         test rax, rax
-        jz .zero
+        jz .zero 
 
         mov rcx, rax        ; Index.
 
@@ -259,21 +267,25 @@ section .text
             add rdi, r12
             mov al, [rdi]
             test al, al
-            jz .zero
+            jz .score
 
+            push rdi
             push rcx
             call sumScoreOfLine
 
             pop rcx
+            pop rdi
             add r14, rax 
             loop .loop
             
             mov rax, r14
             jmp .end
 
+        .score:
+            inc r14
+
         .zero:
-            xor rax, rax
-            inc rax
+            mov rax, r14
 
         .end:
             pop r14
@@ -338,10 +350,7 @@ section .text
                 jmp .outerLoop
 
         .out:
-            xor rax, rax
-            mov rcx, r15
-            stc
-            rcl rax, cl
+            mov rax, r15
             jmp .end
 
         .error:
