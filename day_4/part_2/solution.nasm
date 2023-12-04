@@ -212,61 +212,76 @@ section .text
         xor rcx, rcx        ; Index.
 
         .loop:
+            cmp rcx, 1
+            jz .end
+
             mov rax, r12
             imul rcx
             mov rdi, r13
             add rdi, rax
 
             push rcx        ; Save index.
-
-            call getSumOfLine
+            call sumScoreOfLine
 
             pop rcx
-            push rcx
-
-            .innerLoop:
-                test rax, rax
-                jz .out
-
-                inc rcx
-                jmp .loop
-
-
-
-
-
-            .out:
-                inc r14
-
-            
-
-
-
-
-
-        .loop:
-            call getNextLine
-
-            test rax, rax
-            jz .lastLine
-
-            mov r13, rax
-            call getSumOfLine
-
-            add r12, rax
-            mov rdi, r13
+            inc rcx
+            add r14, rax
             jmp .loop
 
-        .lastLine:
-            call getSumOfLine
-            add r12, rax
-            mov rax, r12
-            
         .end:
-            pop r12
+            mov rax, r14
+            pop r14
             pop r13
+            pop r12
             pop rbp
             ret
+
+
+    ; int sumScoreOfLine(char* line);
+    sumScoreOfLine:
+        push rbp
+        push r12
+        push r13
+        push r14
+        
+        mov r12, 117        ; Line length (including newline)
+        mov r13, rdi        ; Base ptr.
+        xor r14, r14        ; Score.
+        
+        call getSumOfLine
+
+        test rax, rax
+        jz .zero
+
+        mov rcx, rax        ; Index.
+
+        .loop:
+            add rdi, r12
+            mov al, [rdi]
+            test al, al
+            jz .zero
+
+            push rcx
+            call sumScoreOfLine
+
+            pop rcx
+            add r14, rax 
+            loop .loop
+            
+            mov rax, r14
+            jmp .end
+
+        .zero:
+            xor rax, rax
+            inc rax
+
+        .end:
+            pop r14
+            pop r13
+            pop r12
+            pop rbp
+            ret            
+        
 
     ; int getSumOfLine(char* line);
     getSumOfLine:
@@ -302,6 +317,9 @@ section .text
             .innerLoop:
                 cmp byte [rdi], 10
                 je .done
+
+                cmp byte [rdi], 0
+                je .out
 
                 call scanNumber
 
