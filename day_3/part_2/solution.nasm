@@ -229,36 +229,41 @@ section .text
         mov r12, rdi            ; First char.
         mov r13, rcx            ; Line len.
 
+        .next:
+            xor r14, r14            ; Temp value.
+            inc r14
+            xor r15, r15            ; Temp count.
+
         ; Scan for *.
-        .loop:
+        .loop1:
             mov al, [rdi]
+            test al, al
+            jz .end
+
             cmp al, '*'
             je .found
             
             inc rdi
-            jmp .loop
+            jmp .loop1
 
         .found:
             ; Check above.
             .above:
                 ; Check if line above.
                 mov rcx, rdi
-                ; dec rcx
                 sub rcx, r12
                 cmp rcx, r13
                 jl .left
                 
                 ; Scan line above.
-                mov rcx, 3
                 mov rsi, rdi
                 sub rsi, r13
 
-                mov al, [rsi]
-                sub al, '0'
-                js .notMiddle
+                cmp byte [rsi], '.'
+                je .notMiddle
 
-                cmp al, 10
-                jge .notMiddle
+                cmp byte [rsi], 10
+                je .notMiddle
 
                 .middle:
                     dec rsi
@@ -267,146 +272,190 @@ section .text
 
                     cmp byte [rsi], 10
                     je .scan 
-
                     jmp .middle
 
                 .notMiddle:
+                    cmp byte [rsi + 1], '.'
+                    je .notRight
+
+                    cmp byte [rsi + 1], 10
+                    je .notRight
+
+                    push rdi
+                    push rsi
+                    mov rdi, rsi
+                    inc rdi
+                    call scanNumber
+                    
+                    pop rsi
+                    pop rdi
+                    xor rdx, rdx
+                    mul r14
+                    mov r14, rax
+                    inc r15
+
+                .notRight:
+                    cmp byte [rsi - 1], '.'
+                    je .left
+
+                    cmp byte [rsi - 1], 10
+                    je .left
+
+                .onLeft:
+                    dec rsi
                     cmp byte [rsi], '.'
-                    je .notLeft
+                    je .scan
 
                     cmp byte [rsi], 10
-                    je .notLeft
-
-                    
-
+                    je .scan 
+                    jmp .onLeft
 
                 .scan:
+                    push rdi
+                    push rsi
                     mov rdi, rsi
                     call scanNumber
-                    add rbx, rax
                     
+                    pop rsi
+                    pop rdi
+                    xor rdx, rdx
+                    mul r14
+                    mov r14, rax
+                    inc r15
 
             ; Check left.
             .left:
+                cmp byte [rdi - 1], '.'
+                je .right
+
+                cmp byte [rdi - 1], 10
+                je .right
+
+                mov rsi, rdi
+
+                .onLeft1:
+                    dec rsi
+                    cmp byte [rsi], '.'
+                    je .scan1
+
+                    cmp byte [rsi], 10
+                    je .scan1
+                    jmp .onLeft1
+
+                .scan1:
+                    push rdi
+                    push rsi
+                    mov rdi, rsi
+                    call scanNumber
+                    
+                    pop rsi
+                    pop rdi
+                    xor rdx, rdx
+                    mul r14
+                    mov r14, rax
+                    inc r15
 
             ; Check right.
             .right:
+                cmp byte [rdi + 1], '.'
+                je .below
 
+                cmp byte [rdi + 1], 10
+                je .below
+
+                push rdi
+                call scanNumber
+                
+                pop rdi
+                xor rdx, rdx
+                mul r14
+                mov r14, rax
+                inc r15
 
             ; Check below.
             .below:
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        .next:
-            call scanNumber
-
-            test rax, rax
-            jz .end
-
-            mov r14, rsi            ; Current first digit.
-            mov r15, rdi            ; Current last digit.
-            push rax                ; Current value.
-
-            ; Check if line above.
-            mov rcx, r14
-            dec rcx
-            sub rcx, r12
-            cmp rcx, r13
-            jl .left
-            
-            ; Scan line above.
-            mov rcx, r15
-            sub rcx, r14
-            add rcx, 3
-            mov rdi, r14
-            dec rdi
-            sub rdi, r13
-
-            .loop1:
-                cmp byte [rdi], '.'
-                je .inc
-                
-                cmp byte [rdi], 10
-                je .inc
-                jmp .found
-
-                .inc:
-                    inc rdi
-                    loop .loop1
-
-            ; Scan left.
-            .left:
-                cmp byte [r14 - 1], '.'
-                je .right
-
-                cmp byte [r14 - 1], 10
-                jne .found
-
-            ; Scan right.
-            .right:
-                cmp byte [r15 + 1], '.'
-                je .below
-
-                cmp byte [r15 + 1], 10
-                jne .found
-
-            ; Scan line below.
-            .below:
+                ; Check if line below.
                 mov rcx, r12
                 add rcx, [filesize]
-                sub rcx, r15
+                sub rcx, rdi
                 cmp rcx, r13
-                jl .notFound
+                jl .after
                 
-                mov rcx, r15
-                sub rcx, r14
-                add rcx, 3
-                mov rdi, r14
-                dec rdi
-                add rdi, r13
+                ; Scan line below.
+                mov rsi, rdi
+                add rsi, r13
 
-                .loop2:
-                    cmp byte [rdi], '.'
-                    je .inc1
+                cmp byte [rsi], '.'
+                je .notMiddle1
+
+                cmp byte [rsi], 10
+                je .notMiddle1
+
+                .middle1:
+                    dec rsi
+                    cmp byte [rsi], '.'
+                    je .scan2
+
+                    cmp byte [rsi], 10
+                    je .scan2
+                    jmp .middle1
+
+                .notMiddle1:
+                    cmp byte [rsi + 1], '.'
+                    je .notRight1
+
+                    cmp byte [rsi + 1], 10
+                    je .notRight1
+
+                    push rdi
+                    push rsi
+                    mov rdi, rsi
+                    inc rdi
+                    call scanNumber
                     
-                    cmp byte [rdi], 10
-                    je .inc1
-                    jmp .found
+                    pop rsi
+                    pop rdi
+                    xor rdx, rdx
+                    mul r14
+                    mov r14, rax
+                    inc r15
 
-                    .inc1:
-                        inc rdi
-                        loop .loop2
+                .notRight1:
+                    cmp byte [rsi - 1], '.'
+                    je .after
 
-                jmp .notFound
+                    cmp byte [rsi - 1], 10
+                    je .after
 
-        .found:
-            pop rax
-            add rbx, rax
-            mov rdi, r15
-            inc rdi
-            jmp .next
+                .onLeft2:
+                    dec rsi
+                    cmp byte [rsi], '.'
+                    je .scan2
 
-        .notFound:
-            pop rax
-            mov rdi, r15
-            inc rdi
-            jmp .next
+                    cmp byte [rsi], 10
+                    je .scan2
+                    jmp .onLeft2
+
+                .scan2:
+                    push rdi
+                    push rsi
+                    mov rdi, rsi
+                    call scanNumber
+                    
+                    pop rsi
+                    pop rdi
+                    xor rdx, rdx
+                    mul r14
+                    mov r14, rax
+                    inc r15
+
+            .after:
+                inc rdi
+                cmp r15, 2
+                jne .next
+
+                add rbx, r14
+                jmp .next
             
         .end:
             mov rax, rbx
