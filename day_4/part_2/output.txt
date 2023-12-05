@@ -3,4 +3,4 @@ nasm -f elf64 solution.nasm -o solution.o
 gcc -g -Wall -Wextra -no-pie solution.o -o solution
 rm -f *.o
 valgrind ./solution
-Total Sum: 21558
+Total Sum: 10425665
