@@ -31,6 +31,9 @@
 %define FUNC_FAILURE    -1
 %define NULL            0
 
+%define TRUE    1
+%define FALSE   0
+
 struc sb
 
 	.st_dev:        resb    8
@@ -114,11 +117,8 @@ section .text
         test eax, eax
         js .err
 
-        ; mov rdi, [file_buf]
-        mov rdi, -1
-        mov rsi, 15
-        mov rdx, -40
-        call quadratic
+        mov rdi, [file_buf]
+        call getSolution
 
         mov rdi, msg_print
         mov rsi, rax
@@ -264,6 +264,7 @@ section .text
 
             ; Get numbers.
             .innerWhile:
+            
                 call scanNumber
                 
                 cmp rax, FUNC_FAILURE
@@ -271,6 +272,7 @@ section .text
 
                 push rax                ; Save number.
                 inc r13
+                inc rdi
                 jmp .innerWhile
 
             .endInnerWhile:
@@ -286,12 +288,13 @@ section .text
             cmp rcx, r13
             je .endFor
 
-            mov rsi, [rsp + r13*8]
-            pop rdi
+            mov rdi, [rsp + r13*8]
+            pop rsi
             push rcx
             call getNumberWays
 
             pop rcx
+            inc rcx
             xor rdx, rdx
             mul r12
             mov r12, rax
@@ -306,6 +309,7 @@ section .text
                 je .end
 
                 pop rdx
+                inc rcx
                 jmp .loop
 
         .err:
@@ -331,57 +335,66 @@ section .text
     getNumberWays:
         push rbp
         push r12
+        push r13
+        push r14
 
         xor r12, r12                ; Sum of ways.
 
-        ; Considering quadratic. 0 = -s^2 + st + d
-        push rdi
-        push rsi
-        mov rdx, rsi
-        mov rsi, rdi
+        ; Considering quadratic. 0 = -s^2 + st - d
+        mov r13, rdi
+        mov r14, rsi
+        
         or rdi, -1
+        mov rsi, r13
+        xor rdx, rdx
+        sub rdx, r14
+        mov rcx, FALSE
         call quadratic
 
-        pop rsi
-        pop rdi
-        
-        .for:
-            ; Speed * time.
-            mov rcx, rax
-            xor rdx, rdx
-            mul rdi
+        mov r12, rax
 
-            cmp rax, rsi
-            jle .endFor
+        or rdi, -1
+        mov rsi, r13
+        xor rdx, rdx
+        sub rdx, r14
+        mov rcx, TRUE
+        call quadratic
 
-            mov rax, rcx
-            inc rax
-            inc r12
-            jmp .for
+        push rdx
+        sub r12, rax
+        mov rax, r12
 
-        .endFor:
-            mov rax, r12
-            jmp .end
+        cqo                 ; Find abs(a).
+        xor rax, rdx
+        sub rax, rdx
 
-        .err:
-            or rax, FUNC_FAILURE
+        pop rdx
+        test rdx, rdx
+        jnz .end
+
+        dec rax
 
         .end:
+            pop r14
+            pop r13
+            pop r12
             pop rbp
             ret
 
     endGetNumberWays:
 
 
-    ; size_t quadratic(size_t a, size_t b, size_t c);
+    ; size_t quadratic(size_t a, size_t b, size_t c, bool secondSolution);
     quadratic:
         push rbp
         push rbx
         push r12
         push r13
+        push r14
 
         mov rax, rdi
         mov rbx, rsi
+        mov r14, rcx
         mov rcx, rdx
         mov r12, rdx
 
@@ -407,17 +420,27 @@ section .text
         ; -b + sqrt(b^2 - 4ac).
         xor r13, r13
         sub r13, rbx
-        
-        add r13, rax                ; r13 = -b + sqrt(b^2 - 4ac).
-        mov rax, r13
 
-        ; final.
-        mov rcx, rdi
-        shl rcx, 1
-        cqo
-        idiv rcx
+        test r14, r14
+        jz .add
+
+        sub r13, rax
+        jmp .finish
+
+        .add:        
+            add r13, rax                ; r13 = -b + sqrt(b^2 - 4ac).
+
+        .finish:
+            mov rax, r13
+
+            ; final.
+            mov rcx, rdi
+            shl rcx, 1
+            cqo
+            idiv rcx
         
         .end:
+            pop r14
             pop r13
             pop r12
             pop rbx
