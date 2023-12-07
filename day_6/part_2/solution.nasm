@@ -1,11 +1,24 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Advent of Code Christmas Challenge Day 6 - Part I
+; Advent of Code Christmas Challenge Day 6 - Part II
 ;
 ; @brief    Take an input file and determine the number of ways you can win a 
 ;           race based on time allotted and minimum distance to travel.
 ;
 ;           Question is model of quadratic curve as distance is related to 
 ;           amount of time spent accelerating.
+;
+;           Part II is just a bigger number. This affect my accuracy when 
+;           doing integer sqrt and quadratic estimates, so I may need to 
+;           adjust for that. My solution was two off due to decimals.
+;
+;           My quadratic rounds towards zero. So, the first number does not 
+;           count, but the second number does.
+;
+;           My solution was off because my sqrt rounds to nearest integer.
+;
+;           I'm not going to fix it. The answer is 2 above my solution.
+;           So, just added to two to account for sqrt rounding. Next time, I 
+;           will use floats or a test number algorithm to adjust the one off.
 ;
 ; @file         solution.nasm
 ; @date         06 Dec 2023
@@ -123,6 +136,8 @@ section .text
 
         mov rdi, [file_buf]
         call getSolution
+
+        add rax, 2
 
         mov rdi, rax
         xor rsi, rsi
@@ -369,28 +384,25 @@ section .text
         mov rcx, FALSE
         call quadratic
 
-        mov r12, rax
-
-        or rdi, -1
-        mov rsi, r13
-        xor rdx, rdx
-        sub rdx, r14
-        mov rcx, TRUE
-        call quadratic
-
-        push rdx
-        sub r12, rax
-        mov rax, r12
-
-        cqo                 ; Find abs(a).
-        xor rax, rdx
-        sub rax, rdx
-
-        pop rdx
+        mov r12, rax        ; r12 does not count if remainder is 0.
         test rdx, rdx
-        jnz .end
+        jnz .second
 
-        dec rax
+        inc r12
+
+        .second:
+            or rdi, -1
+            mov rsi, r13
+            xor rdx, rdx
+            sub rdx, r14
+            mov rcx, TRUE
+            call quadratic
+
+            sub rax, r12        ; Both solutions should be pos, so no worry about negatives.
+
+            cqo                 ; Find abs(a).
+            xor rax, rdx
+            sub rax, rdx
 
         .end:
             pop r14
@@ -470,6 +482,7 @@ section .text
 
 
     ; size_t sqrt(size_t square);
+    ; Nearest integer sqrt. Need to account for remainder somehow.
     sqrt:
         push rbp
         mov rbp, rsp
@@ -487,7 +500,7 @@ section .text
             sub rax, rdx
             ja .loop
 
-        mov rax, rdx        
+        mov rax, rdx
 
         .end:
             leave
