@@ -1,11 +1,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Advent of Code Christmas Challenge Day 6 - Part I
+; Advent of Code Christmas Challenge Day 7 - Part I
 ;
-; @brief    Take an input file and determine the number of ways you can win a 
-;           race based on time allotted and minimum distance to travel.
+; @brief    Take an input file and the rank of each hand and multiply that by 
+;           the hands bid and return of the sum of the values.
 ;
-;           Question is model of quadratic curve as distance is related to 
-;           amount of time spent accelerating.
+;           Decided to use a naive n2 algorithm, which is fine, instead of a 
+;           sorting algorithm which would get closer to n log n.
 ;
 ; @file         solution.nasm
 ; @date         06 Dec 2023
@@ -55,6 +55,18 @@ struc sb
 	.st_mtime_nsec: resb    8
 	.st_ctime:      resb    8
 	.st_ctime_nsec: resb    8
+
+endstruc
+
+struc camel_card_hand
+
+    .cc_card_one:   resb    1
+    .cc_card_two:   resb    1
+    .cc_card_three: resb    1
+    .cc_card_four:  resb    1
+    .cc_card_five:  resb    1
+    .cc_bid:        resq    1
+    .cc_rank        resq    1
 
 endstruc
 
@@ -137,15 +149,15 @@ section .text
         inc sil
         call print
 
-        mov rdi, [file_buf]
-        call free
+        ; mov rdi, [file_buf]
+        ; call free
 
         xor rax, rax
         jmp .end
 
         .err:
-            mov rdi, [file_buf]
-            call free
+            ; mov rdi, [file_buf]
+            ; call free
 
             mov rdi, STDERR
             mov rsi, err_main
@@ -199,7 +211,8 @@ section .text
         ; void *malloc(size_t size);
         mov rdi, rax
         inc rdi
-        call malloc
+        ; call malloc
+        call memAlloc
 
         test rax, rax
         jz .errClose
@@ -261,15 +274,47 @@ section .text
     getSolution:
         push rbp
         mov rbp, rsp
-        push r12
-        push r13
-        push r14
+        push r12                        ; Count of hands.
+        push r13                        ; Hand buffer.
+        push r14                        ; Next line.
+        push r15                        ; Current hand.
 
-        xor r12, r12                    ; Product.
-        inc r12
-        xor r13, r13                    ; Count of races.
-        xor r14, r14                    ; Next line.
+        ; Let's convert to binary.
+        ; Count lines.
+        xor rcx, rcx    ; i.
+        xor rdx, rdx    ; count.
+        xor r15, r15    ; Current hand.
 
+        .countLines:
+            mov al, [rdi + rcx]
+            test al, al
+            jz .endCountLines
+
+            cmp al, 10
+            jne .notNewLine
+
+            inc rdx
+
+            .notNewLine:
+                inc rcx
+                jmp .countLines
+
+        .endCountLines:
+            inc rdx     ; For the last line.
+            mov r12, rdx
+
+            ; Allocate structs.
+            mov rax, rdx
+            xor rdx, rdx
+            mov rcx, camel_card_hand_size
+            mul rcx
+            push rdi
+            mov rdi, rax
+            call memAlloc
+
+            mov r13, rax                ; buffer pointer.
+            pop rdi
+        
         ; Parse file.
         .while:
 
@@ -279,45 +324,101 @@ section .text
             call getLine                ; rdi remains current line.
 
             mov r14, rax                ; Save next line.
+            xor cl, cl
 
             ; Get numbers.
-            .innerWhile:            
-                call scanNumber
-                
-                cmp rax, FUNC_FAILURE
-                je .endInnerWhile
+            .innerWhile:
 
-                push rax                ; Save number.
-                inc r13
-                inc rdi
-                jmp .innerWhile
+                cmp cl, 5
+                je .endInnerWhile
+                
+                ; Parse line.
+                mov al, [rdi + cl]
+                cmp al, 'A'
+                je .ace
+
+                cmp al, 'K'
+                je .king
+
+                cmp al, 'Q'
+                je .queen
+
+                cmp al, 'J'
+                je .jack
+
+                cmp al, 'T'
+                je .ten
+
+                sub al, '0'
+                jmp .move
+
+                .ace:
+                    mov al, 14
+                    jmp .move
+                    
+                .king:
+                    mov al, 13
+                    jmp .move
+                    
+                .queen: 
+                    mov al, 12
+                    jmp .move
+                    
+                .jack:
+                    mov al, 11
+                    jmp .move
+
+                .ten:
+                    mov al, 10
+
+                .move:
+                    mov [r13 + r15*camel_card_hand_size + cl], al
+                    inc cl                    
+                    jmp .innerWhile
 
             .endInnerWhile:
+                add rdi, 5
+                call scanNumber
+
+                mov [r13 + r15*camel_card_hand_size + cc_bid], rax
                 mov rdi, r14
+                inc r15
                 jmp .while
 
         .endWhile:
 
-        shr r13, 1
-        xor rcx, rcx
-
+        ; File parsed. Now need to rank hands.
+        xor r15, r15            ; Current hand.
+        xor rcx, rcx            ; Current second hand.
+        
         .for:
-            cmp rcx, r13
+            cmp r15, r12
             je .endFor
 
-            mov rdi, [rsp + r13*8]
-            pop rsi
-            push rcx
-            call getNumberWays
+            .innerFor:
+                cmp rcx, r12
+                je .endInnerFor
 
-            pop rcx
-            inc rcx
-            xor rdx, rdx
-            mul r12
-            mov r12, rax
+                cmp r15, rcx
+                je .same
+
+                mov rdi, r15
+
+                .same:
+                    inc rcx
+                    jmp .innerFor
+
+            .endInnerFor:
+
+            inc r15
             jmp .for
 
         .endFor:
+
+
+
+
+
             mov rax, r12
             xor rcx, rcx
 
@@ -349,48 +450,9 @@ section .text
 
 
     ; size_t getNumberWays(size_t time, size_t distance);
-    getNumberWays:
+    getHandGrade:
         push rbp
         mov rbp, rsp
-        push r12
-        push r13
-        push r14
-
-        xor r12, r12                ; Sum of ways.
-
-        ; Considering quadratic. 0 = -s^2 + st - d
-        mov r13, rdi
-        mov r14, rsi
-        
-        or rdi, -1
-        mov rsi, r13
-        xor rdx, rdx
-        sub rdx, r14
-        mov rcx, FALSE
-        call quadratic
-
-        mov r12, rax
-
-        or rdi, -1
-        mov rsi, r13
-        xor rdx, rdx
-        sub rdx, r14
-        mov rcx, TRUE
-        call quadratic
-
-        push rdx
-        sub r12, rax
-        mov rax, r12
-
-        cqo                 ; Find abs(a).
-        xor rax, rdx
-        sub rax, rdx
-
-        pop rdx
-        test rdx, rdx
-        jnz .end
-
-        dec rax
 
         .end:
             pop r14
@@ -399,7 +461,7 @@ section .text
             leave
             ret
 
-    endGetNumberWays:
+    endGetHandGrade:
 
 
     ; size_t quadratic(size_t a, size_t b, size_t c, bool secondSolution);
@@ -470,6 +532,7 @@ section .text
 
 
     ; size_t sqrt(size_t square);
+    ; Nearest integer sqrt. Need to account for remainder somehow.
     sqrt:
         push rbp
         mov rbp, rsp
@@ -487,7 +550,7 @@ section .text
             sub rax, rdx
             ja .loop
 
-        mov rax, rdx        
+        mov rax, rdx
 
         .end:
             leave
@@ -786,5 +849,28 @@ section .text
             ret
 
     endStrLen:
+
+
+    memAlloc:
+        push rbp
+        mov rbp, rsp
+
+        xor rbx, rbx
+        mov rax, SYS_BRK        
+        syscall
+
+        add rax, rdi
+        mov rbx, rax
+        mov rax, SYS_BRK
+        syscall
+
+        sub rax, rdi
+
+        .end:
+            leave
+            ret
+
+    endMemAlloc:
+
 
 ; End of file.
