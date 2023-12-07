@@ -66,7 +66,9 @@ struc camel_card_hand
     .cc_card_four:  resb    1
     .cc_card_five:  resb    1
     .cc_bid:        resq    1
-    .cc_rank        resq    1
+    .cc_score:      resq    1
+    .cc_rank:       resq    1
+    .cc_pad:        resb    3
 
 endstruc
 
@@ -114,13 +116,15 @@ section .bss
 ; Global initialized variables.
 section .data
 
+    test:   db "AKQJT"
+            dq 777, 0, 0
+            db 0, 0, 0
+
 
 ; Code.
 section .text
 
     global main
-    extern malloc
-    extern free
 
     ; Main function.
     main:
@@ -133,8 +137,11 @@ section .text
         test eax, eax
         js .err
 
-        mov rdi, [file_buf]
-        call getSolution
+        ; mov rdi, [file_buf]
+        ; call getSolution
+
+        mov rdi, test
+        call getHandGrade
 
         mov rdi, rax
         xor rsi, rsi
@@ -149,16 +156,10 @@ section .text
         inc sil
         call print
 
-        ; mov rdi, [file_buf]
-        ; call free
-
         xor rax, rax
         jmp .end
 
         .err:
-            ; mov rdi, [file_buf]
-            ; call free
-
             mov rdi, STDERR
             mov rsi, err_main
             mov rdx, err_main_len
@@ -270,189 +271,313 @@ section .text
     endGetFile:
 
 
-    ; size_t getSolution(char* fileBuffer);
-    getSolution:
-        push rbp
-        mov rbp, rsp
-        push r12                        ; Count of hands.
-        push r13                        ; Hand buffer.
-        push r14                        ; Next line.
-        push r15                        ; Current hand.
+    ; ; size_t getSolution(char* fileBuffer);
+    ; getSolution:
+    ;     push rbp
+    ;     mov rbp, rsp
+    ;     push r12                        ; Count of hands.
+    ;     push r13                        ; Hand buffer.
+    ;     push r14                        ; Next line.
+    ;     push r15                        ; Current hand.
 
-        ; Let's convert to binary.
-        ; Count lines.
-        xor rcx, rcx    ; i.
-        xor rdx, rdx    ; count.
-        xor r15, r15    ; Current hand.
+    ;     ; Let's convert to binary.
+    ;     ; Count lines.
+    ;     xor rcx, rcx    ; i.
+    ;     xor rdx, rdx    ; count.
+    ;     xor r15, r15    ; Current hand.
 
-        .countLines:
-            mov al, [rdi + rcx]
-            test al, al
-            jz .endCountLines
 
-            cmp al, 10
-            jne .notNewLine
+    ;     .countLines:
+    ;         mov al, [rdi + rcx]
+    ;         test al, al
+    ;         jz .endCountLines
 
-            inc rdx
+    ;         cmp al, 10
+    ;         jne .notNewLine
 
-            .notNewLine:
-                inc rcx
-                jmp .countLines
+    ;         inc rdx
 
-        .endCountLines:
-            inc rdx     ; For the last line.
-            mov r12, rdx
+    ;         .notNewLine:
+    ;             inc rcx
+    ;             jmp .countLines
 
-            ; Allocate structs.
-            mov rax, rdx
-            xor rdx, rdx
-            mov rcx, camel_card_hand_size
-            mul rcx
-            push rdi
-            mov rdi, rax
-            call memAlloc
+    ;     .endCountLines:
+    ;         inc rdx     ; For the last line.
+    ;         mov r12, rdx
 
-            mov r13, rax                ; buffer pointer.
-            pop rdi
+    ;         ; Allocate structs.
+    ;         mov rax, rdx
+    ;         xor rdx, rdx
+    ;         mov rcx, camel_card_hand_size
+    ;         mul rcx
+    ;         push rdi
+    ;         mov rdi, rax
+    ;         call memAlloc
+
+    ;         mov r13, rax                ; buffer pointer.
+    ;         pop rdi
         
-        ; Parse file.
-        .while:
+    ;     ; Parse file.
+    ;     .while:
 
-            test rdi, rdi
-            jz .endWhile
+    ;         test rdi, rdi
+    ;         jz .endWhile
 
-            call getLine                ; rdi remains current line.
+    ;         call getLine                ; rdi remains current line.
 
-            mov r14, rax                ; Save next line.
-            xor cl, cl
+    ;         mov r14, rax                ; Save next line.
+    ;         xor rcx, rcx
+    ;         xor rdx, rdx
+    ;         mov rax, camel_card_hand_size
+    ;         mul r15
+    ;         mov r10, rax
 
-            ; Get numbers.
-            .innerWhile:
+    ;         ; Get numbers.
+    ;         .innerWhile:
 
-                cmp cl, 5
-                je .endInnerWhile
+    ;             cmp cl, 5
+    ;             je .endInnerWhile
                 
-                ; Parse line.
-                mov al, [rdi + cl]
-                cmp al, 'A'
-                je .ace
+    ;             ; Parse line.
+    ;             mov ch, byte [rdi + rcx]
+    ;             cmp ch, 'A'
+    ;             je .ace
 
-                cmp al, 'K'
-                je .king
+    ;             cmp ch, 'K'
+    ;             je .king
 
-                cmp al, 'Q'
-                je .queen
+    ;             cmp ch, 'Q'
+    ;             je .queen
 
-                cmp al, 'J'
-                je .jack
+    ;             cmp ch, 'J'
+    ;             je .jack
 
-                cmp al, 'T'
-                je .ten
+    ;             cmp ch, 'T'
+    ;             je .ten
 
-                sub al, '0'
-                jmp .move
+    ;             sub ch, '0'
+    ;             jmp .move
 
-                .ace:
-                    mov al, 14
-                    jmp .move
+    ;             .ace:
+    ;                 mov ch, 14
+    ;                 jmp .move
                     
-                .king:
-                    mov al, 13
-                    jmp .move
+    ;             .king:
+    ;                 mov ch, 13
+    ;                 jmp .move
                     
-                .queen: 
-                    mov al, 12
-                    jmp .move
+    ;             .queen: 
+    ;                 mov ch, 12
+    ;                 jmp .move
                     
-                .jack:
-                    mov al, 11
-                    jmp .move
+    ;             .jack:
+    ;                 mov ch, 11
+    ;                 jmp .move
 
-                .ten:
-                    mov al, 10
+    ;             .ten:
+    ;                 mov ch, 10
 
-                .move:
-                    mov [r13 + r15*camel_card_hand_size + cl], al
-                    inc cl                    
-                    jmp .innerWhile
+    ;             .move:
+    ;                 mov rax, r10
+    ;                 add rax, cl
+    ;                 mov dl, ch
+    ;                 mov [r13 + rax], dl
+    ;                 inc cl
+    ;                 jmp .innerWhile
 
-            .endInnerWhile:
-                add rdi, 5
-                call scanNumber
+    ;         .endInnerWhile:
+    ;             add rdi, 5
+    ;             call scanNumber
 
-                mov [r13 + r15*camel_card_hand_size + cc_bid], rax
-                mov rdi, r14
-                inc r15
-                jmp .while
+    ;             mov [r13 + r10 + cc_bid], rax
+    ;             lea rdi, [r13 + r10]
+    ;             call getHandGrade
 
-        .endWhile:
+    ;             mov [r13 + r10 + cc_score], rax
+    ;             mov rdi, r14
+    ;             inc r15
+    ;             jmp .while
 
-        ; File parsed. Now need to rank hands.
-        xor r15, r15            ; Current hand.
-        xor rcx, rcx            ; Current second hand.
-        
-        .for:
-            cmp r15, r12
-            je .endFor
+    ;     .endWhile:
 
-            .innerFor:
-                cmp rcx, r12
-                je .endInnerFor
+    ;     ; File parsed. Now need to rank hands.
+    ;     xor r15, r15            ; Current hand.
+    ;     xor rcx, rcx            ; Current second hand.
 
-                cmp r15, rcx
-                je .same
+    ;     .for:
+    ;         cmp r15, r12
+    ;         je .endFor
 
-                mov rdi, r15
+    ;         xor rdx, rdx
+    ;         mov rax, camel_card_hand_size
+    ;         mul r15
+    ;         mov r10, rax            ; Current hand offset.
 
-                .same:
-                    inc rcx
-                    jmp .innerFor
+    ;         .innerFor:
+    ;             cmp rcx, r12
+    ;             je .endInnerFor
 
-            .endInnerFor:
+    ;             xor rdx, rdx
+    ;             mov rax, camel_card_hand_size
+    ;             mul rcx
+    ;             mov r11, rax            ; Second hand offset.
 
-            inc r15
-            jmp .for
+    ;             cmp r15, rcx
+    ;             je .same
 
-        .endFor:
+    ;             mov rax, [r13 + r10 + cc_score]
+    ;             cmp rax, [r13 + r11 + cc_score]
+    ;             je .equal
+    ;             jl .same
+
+    ;             inc [r13 + r10 + cc_rank]
+
+    ;             .equal:
+    ;                 mov al, [r13 + r10]
+    ;                 cmp al, [r13 + r11]
+    ;                 jl .same
+
+    ;                 inc [r13 + r10 + cc_rank]
+
+    ;             .same:
+    ;                 inc rcx
+    ;                 jmp .innerFor
+
+    ;         .endInnerFor:
+    ;             inc r15
+    ;             jmp .for
+
+    ;     .endFor:
+
+    ;     ; Now sum all winnings.
+    ;     xor rcx, rcx
+    ;     xor r8, r8
+
+    ;     .loop:
+    ;         cmp rcx, r12
+    ;         je .end
+
+    ;         xor rdx, rdx
+    ;         mov rax, camel_card_hand_size
+    ;         mul rcx
+    ;         mov r11, rax            ; Hand offset.
+
+    ;         xor rdx, rdx
+    ;         mov rax, [r13 + r11 + cc_bid]
+    ;         mul [r13 + r11 + cc_rank]
+    ;         add r8, rax
+    ;         inc rcx
+    ;         jmp .loop
+            
+    ;     .end:
+    ;         mov rax, r8
+    ;         pop r15
+    ;         pop r14
+    ;         pop r13
+    ;         pop r12
+    ;         leave
+    ;         ret
+
+    ; endGetSolution:
 
 
-
-
-
-            mov rax, r12
-            xor rcx, rcx
-
-            .loop:
-                cmp rcx, r13
-                je .end
-
-                pop rdx
-                inc rcx
-                jmp .loop
-
-        .err:
-            mov rdi, STDERR
-            mov rsi, err_getSolution
-            mov rdx, err_getSolution_len
-            mov rax, SYS_WRITE
-            syscall
-
-            or rax, FUNC_FAILURE
-
-        .end:
-            pop r14
-            pop r13
-            pop r12
-            leave
-            ret
-
-    endGetSolution:
-
-
-    ; size_t getNumberWays(size_t time, size_t distance);
+    ; size_t getHandGrade(camel_card_hand* hand);
     getHandGrade:
         push rbp
         mov rbp, rsp
+        push rbx
+
+        xor rcx, rcx    ; i.
+        xor dx, dx      ; count.
+        xor r8w, r8w    ; Highest match.
+        inc r8w
+        xor r9b, r9b    ; Number of ones.
+
+        .for:int3
+            cmp cl, 5
+            je .endFor
+
+            mov al, [rdi + rcx]
+            xor rbx, rbx    ; j.
+        
+            .innerFor:
+                cmp bl, 5
+                je .endInnerFor
+
+                mov ah, [rdi + rbx]
+                cmp al, ah
+                jne .noMatch
+
+                inc dx
+
+                .noMatch:
+                    inc bl
+                    jmp .innerFor
+
+            .endInnerFor:
+                inc cl
+
+                cmp dx, r8w
+                cmovg r8w, dx
+                cmp dx, 1
+                jne .for
+
+                inc r9b
+                jmp .for
+
+        .endFor:
+        xor rax, rax
+        mov ax, r9w
+        jmp .end
+
+        ; Check number of matches to assign grade.
+        ; no-pair = 1, 1, 1, 1, 1. = 1
+        ; pair = 2, 2, 1, 1, 1. = 2
+        ; two-pair = 2, 2, 2, 2, 1. = 3
+        ; three = 3, 3, 3, 1, 1. = 4
+        ; fullhouse = 3, 3, 3, 2, 2. = 5
+        ; four = 4, 4, 4, 4, 1. = 6
+
+        xor rax, rax
+
+        cmp r8w, 1
+        je .one
+
+        cmp r8w, 2
+        je .two
+
+        cmp r8w, 3
+        je .three
+
+        mov r10w, 6
+        cmp r8w, 4
+        cmove ax, r10w
+        jmp .end
+
+        .one:
+            mov ax, 1
+            jmp .end
+
+        .two:
+            cmp r9b, 1
+            je .score3
+
+            mov ax, 2
+            jmp .end
+
+            .score3:
+                mov ax, 3
+                jmp .end
+
+        .three:
+            cmp r9b, 2
+            je .score4
+
+            mov ax, 5
+            jmp .end
+
+            .score4:
+                mov ax, 4
 
         .end:
             pop r14
@@ -559,157 +684,157 @@ section .text
     endsqrt:
 
 
-    ; char* getNextLine(char* buf);
-    ; Returns NULL if no more lines.
-    ; Replaces newline with null and returns location of next line.
-    ; Outputs: rax = nextline, rdi = currentline, 
-    getLine:
-        push rbp
-        mov rbp, rsp
+    ; ; char* getNextLine(char* buf);
+    ; ; Returns NULL if no more lines.
+    ; ; Replaces newline with null and returns location of next line.
+    ; ; Outputs: rax = nextline, rdi = currentline, 
+    ; getLine:
+    ;     push rbp
+    ;     mov rbp, rsp
 
-        xor rcx, rcx
+    ;     xor rcx, rcx
 
-        .loop:
+    ;     .loop:
 
-            test rdi, rdi
-            jz .err
+    ;         test rdi, rdi
+    ;         jz .err
 
-            cmp byte [rdi + rcx], 0
-            je .err
+    ;         cmp byte [rdi + rcx], 0
+    ;         je .err
 
-            cmp byte [rdi + rcx], 10
-            je .found
+    ;         cmp byte [rdi + rcx], 10
+    ;         je .found
 
-            inc rcx
-            jmp .loop
+    ;         inc rcx
+    ;         jmp .loop
 
-        .found:
-            mov byte [rdi + rcx], 0
+    ;     .found:
+    ;         mov byte [rdi + rcx], 0
 
-            cmp byte [rdi + rcx + 1], 0
-            je .err
+    ;         cmp byte [rdi + rcx + 1], 0
+    ;         je .err
 
-            mov rax, rdi
-            add rax, rcx
-            inc rax
-            jmp .end
+    ;         mov rax, rdi
+    ;         add rax, rcx
+    ;         inc rax
+    ;         jmp .end
 
-        .err:
-            push rdi
-            mov rdi, STDERR
-            mov rsi, err_getLine
-            mov rdx, err_getFile_len
-            mov rax, SYS_WRITE
-            syscall
+    ;     .err:
+    ;         push rdi
+    ;         mov rdi, STDERR
+    ;         mov rsi, err_getLine
+    ;         mov rdx, err_getFile_len
+    ;         mov rax, SYS_WRITE
+    ;         syscall
 
-            pop rdi
-            xor rax, rax
+    ;         pop rdi
+    ;         xor rax, rax
 
-        .end:
-            leave
-            ret
+    ;     .end:
+    ;         leave
+    ;         ret
 
-    endGetLine:
+    ; endGetLine:
 
 
-    ; size_t scanNumber(char* findNumStr);
-    ; Returns value in rax, first digit ptr in rsi, last digit in rdi.
-    ; Returns -1 if error (eventhough unsigned which is stupid.)
-    scanNumber:
-        push rbp
-        mov rbp, rsp
+    ; ; size_t scanNumber(char* findNumStr);
+    ; ; Returns value in rax, first digit ptr in rsi, last digit in rdi.
+    ; ; Returns -1 if error (eventhough unsigned which is stupid.)
+    ; scanNumber:
+    ;     push rbp
+    ;     mov rbp, rsp
 
-        xor rax, rax
-        xor rcx, rcx
-        xor rdx, rdx
-        xor r8, r8
-        xor r11, r11
-        dec rdi
+    ;     xor rax, rax
+    ;     xor rcx, rcx
+    ;     xor rdx, rdx
+    ;     xor r8, r8
+    ;     xor r11, r11
+    ;     dec rdi
 
-        ; Find first digit.
-        .loop:
-            inc rdi
-            mov al, [rdi]
+    ;     ; Find first digit.
+    ;     .loop:
+    ;         inc rdi
+    ;         mov al, [rdi]
 
-            test al, al
-            jz .err
+    ;         test al, al
+    ;         jz .err
 
-            sub al, '0'
-            test al, al
-            js .loop
+    ;         sub al, '0'
+    ;         test al, al
+    ;         js .loop
 
-            cmp al, 10
-            jge .loop
+    ;         cmp al, 10
+    ;         jge .loop
 
-        mov rsi, rdi
+    ;     mov rsi, rdi
 
-        ; Count digits.
-        .count:
-            mov al, [rdi + rcx]
-            sub al, '0'
-            test al, al
-            js .parse
+    ;     ; Count digits.
+    ;     .count:
+    ;         mov al, [rdi + rcx]
+    ;         sub al, '0'
+    ;         test al, al
+    ;         js .parse
 
-            cmp al, 10
-            jge .parse
+    ;         cmp al, 10
+    ;         jge .parse
 
-            inc rcx
-            jmp .count
+    ;         inc rcx
+    ;         jmp .count
 
-        ; Parse digits into value.
-        .parse:
-            ; Number of digits = rcx + 1.
-            ; Position of first digit = rdi.
-            mov r8b, [rdi]
-            sub r8b, '0'
+    ;     ; Parse digits into value.
+    ;     .parse:
+    ;         ; Number of digits = rcx + 1.
+    ;         ; Position of first digit = rdi.
+    ;         mov r8b, [rdi]
+    ;         sub r8b, '0'
 
-            mov rax, 1
-            mov r9, 10
-            mov r10, rcx
-            dec r10
+    ;         mov rax, 1
+    ;         mov r9, 10
+    ;         mov r10, rcx
+    ;         dec r10
 
-            .square:
-                test r10, r10
-                jz .out
+    ;         .square:
+    ;             test r10, r10
+    ;             jz .out
 
-                mul r9
-                dec r10
-                jmp .square
+    ;             mul r9
+    ;             dec r10
+    ;             jmp .square
 
-            .out:
-                mul r8
+    ;         .out:
+    ;             mul r8
 
-            add r11, rax
-            dec rcx
-            test rcx, rcx
-            jz .finish
+    ;         add r11, rax
+    ;         dec rcx
+    ;         test rcx, rcx
+    ;         jz .finish
 
-            inc rdi
-            jmp .parse
+    ;         inc rdi
+    ;         jmp .parse
 
-        .finish:
-            mov rax, r11
-            jmp .end
+    ;     .finish:
+    ;         mov rax, r11
+    ;         jmp .end
             
-        .err:
-            push rdi
-            push rsi
+    ;     .err:
+    ;         push rdi
+    ;         push rsi
             
-            mov rdi, STDERR
-            mov rsi, err_scanNumber
-            mov rdx, err_scanNumber_len
-            mov rax, SYS_WRITE
-            syscall
+    ;         mov rdi, STDERR
+    ;         mov rsi, err_scanNumber
+    ;         mov rdx, err_scanNumber_len
+    ;         mov rax, SYS_WRITE
+    ;         syscall
 
-            pop rsi
-            pop rdi                
-            or rax, FUNC_FAILURE
+    ;         pop rsi
+    ;         pop rdi                
+    ;         or rax, FUNC_FAILURE
 
-        .end:
-            leave
-            ret
+    ;     .end:
+    ;         leave
+    ;         ret
 
-    endScanNumber:
+    ; endScanNumber:
 
 
     ; char* numToStr(size_t num, bool signed);
@@ -854,19 +979,21 @@ section .text
     memAlloc:
         push rbp
         mov rbp, rsp
+        push r12
 
         xor rbx, rbx
         mov rax, SYS_BRK        
         syscall
 
-        add rax, rdi
-        mov rbx, rax
+        mov r12, rdi
+        add rdi, rax
         mov rax, SYS_BRK
         syscall
 
-        sub rax, rdi
+        sub rax, r12
 
         .end:
+            pop r12
             leave
             ret
 
