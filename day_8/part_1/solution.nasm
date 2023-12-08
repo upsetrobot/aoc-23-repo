@@ -1,11 +1,8 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Advent of Code Christmas Challenge Day 7 - Part I
+; Advent of Code Christmas Challenge Day 8 - Part I
 ;
-; @brief    Take an input file and the rank of each hand and multiply that by 
-;           the hands bid and return of the sum of the values.
-;
-;           Decided to use a naive n2 algorithm, which is fine, instead of a 
-;           sorting algorithm which would get closer to n log n.
+; @brief    Find number of steps in links of a map to get from one point to 
+;           another given directions to go right or left.
 ;
 ; @file         solution.nasm
 ; @date         06 Dec 2023
@@ -58,17 +55,10 @@ struc sb
 
 endstruc
 
-struc camel_card_hand
+struc loc_tbl
 
-    .cc_card_one:   resb    1
-    .cc_card_two:   resb    1
-    .cc_card_three: resb    1
-    .cc_card_four:  resb    1
-    .cc_card_five:  resb    1
-    .cc_bid:        resq    1
-    .cc_score:      resq    1
-    .cc_rank:       resq    1
-    .cc_pad:        resb    3
+    .left:  resb    2
+    .right: resb    2
 
 endstruc
 
@@ -110,9 +100,7 @@ section .bss
 ; Global initialized variables.
 section .data
 
-    test:   db "AQQQQ"
-            dq 777, 0, 0
-            db 0, 0, 0
+    ; test:   db ""
 
 
 ; Code.
@@ -272,90 +260,161 @@ section .text
         push r15
 
         ; Parse directions.
-        mov r12, rdi                ; Current line.
+        call getLine
+        
+        mov r15, rax                ; next_line.
+        mov r12, rdi                ; curr_line.
         call strLen
 
-        mov r13, rax                ; Array len.
+        mov r13, rax                ; LR_arr_len.
         mov rdi, rax
         call memAlloc
 
-        mov r14, rax                ; Direction array.
-        xor rcx, rcx
-
+        mov r14, rax                ; LR_arr.
+        mov rdi, r12                ; curr_line.
+        
         %define L 0
         %define R 1
+
+        xor rcx, rcx                ; i
 
         .for:
             cmp ecx, r13d
             je .endFor
 
-            cmp [r12 + rcx], 'L'
+            cmp byte [rdi + rcx], 'L'
             je .left
 
             .right:
-                mov [r14 + rcx], L
+                mov byte [r14 + rcx], R
+                jmp .contFor
 
             .left:
-                mov [r14 + rcx], R
+                mov byte [r14 + rcx], L
 
-            inc ecx
-            jmp .for
+            .contFor:
+                inc ecx
+                jmp .for
 
         .endFor:
-
-        mov rdi, r12
+        
+        mov rdi, r15
         call getLine
 
         mov rdi, rax
-        call getLine
+        mov r15, rax                ; top_line.
 
-        mov r15, rax                ; Next line.
+        ; Allocate table based on location.
+        mov rdi, 0x8000
+        shl rdi, 2                  ; loc_arr size in bytes.
+        call memAlloc
 
-        ; Allocate big table based on location
-        struc loc_tbl
-
-            .loc:   resd    1
-            .left:  resq    1
-            .right: resq    1
-
-        endstruc
-
-        ; Count rows.
-        xor rcx, rcx
-
-        .whileRows:
-            
-
-        mov al, loc_tbl_size
-        xor dx, dx
-
-
-        .while:
-            test r15, r15
-            jz .endWhile
-
-            ; Get location. 
-
-
-
+        mov r12, rax                ; loc_arr.
+        mov rdi, r15
+        xor rcx, rcx                ; Index.
+        xor rdx, rdx                ; ID.
         
+        .parseRows:
+            test rdi, rdi
+            jz .endParseRows
+
+            call getLine
+
+            mov r15, rax            ; next_line
+            xor rdx, rdx
+            
+            mov al, [rdi]
+            sub al, 'A'
+            add dl, al
+            shl dx, 5              ; 5 bits to hold value ('Z' = 25)
+            mov al, [rdi + 1]
+            sub al, 'A'
+            add dl, al
+            shl dx, 5
+            mov al, [rdi + 2]
+            sub al, 'A'
+            add dl, al
+            mov rcx, rdx            ; Index.
+            xor rdx, rdx
+
+            .notFirst:
+
+            ; Need to get left and right location.
+            mov al, [rdi + 7]
+            sub al, 'A'
+            add dl, al
+            shl dx, 5              ; 5 bits to hold value ('Z' = 25)
+            mov al, [rdi + 8]
+            sub al, 'A'
+            add dl, al
+            shl dx, 5
+            mov al, [rdi + 9]
+            sub al, 'A'
+            add dl, al
+
+            mov [r12 + rcx*loc_tbl_size], dx
+            xor dx, dx
+
+            mov al, [rdi + 12]
+            sub al, 'A'
+            add dl, al
+            shl dx, 5              ; 5 bits to hold value ('Z' = 25)
+            mov al, [rdi + 13]
+            sub al, 'A'
+            add dl, al
+            shl dx, 5
+            mov al, [rdi + 14]
+            sub al, 'A'
+            add dl, al
+
+            mov [r12 + rcx*loc_tbl_size + loc_tbl.right], dx
+            mov rdi, r15
+            jmp .parseRows
+
+        .endParseRows:
+            
+        ; Follow direction.
+        ; Need start location.
+        xor rcx, rcx            ; i.
+        xor rax, rax            ; count.
+        xor rdx, rdx            ; curr_index.
+
+        .whileNotZZZ:
+            cmp dx, 0x6739      ; ZZZ
+            je .endWhileNotZZZ
+
+            cmp ecx, r13d
+            jne .dontRotate
+
+            xor ecx, ecx
+
+            .dontRotate:
+                cmp byte [r14 + rcx], R
+                je .goRight
+
+            .goLeft:
+                mov dx, [r12 + rdx*loc_tbl_size]
+                jmp .contWhileNotZZZ
+
+            .goRight:
+                mov dx, [r12 + rdx*loc_tbl_size + loc_tbl.right]
+
+            .contWhileNotZZZ:
+                inc ecx
+                inc rax
+                jmp .whileNotZZZ
+
+        .endWhileNotZZZ:
+
         .end:
+            pop r15
+            pop r14
+            pop r13
+            pop r12
             leave
             ret
 
     endGetSolution:
-
-
-    ; size_t getHandGrade(camel_card_hand* hand);
-    getHandGrade:
-        push rbp
-        mov rbp, rsp
-
-        .end:
-            leave
-            ret
-
-    endGetHandGrade:
 
 
     ; char* getNextLine(char* buf);
