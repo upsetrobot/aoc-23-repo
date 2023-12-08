@@ -5,7 +5,7 @@
 ;           another given directions to go right or left.
 ;
 ; @file         solution.nasm
-; @date         06 Dec 2023
+; @date         08 Dec 2023
 ; @author       upsetrobot
 ; @copyright    Copyright (c) 2023
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
