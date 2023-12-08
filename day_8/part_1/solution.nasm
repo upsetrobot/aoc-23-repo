@@ -1,13 +1,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Advent of Code Christmas Challenge Day 7 - Part II
+; Advent of Code Christmas Challenge Day 7 - Part I
 ;
 ; @brief    Take an input file and the rank of each hand and multiply that by 
 ;           the hands bid and return of the sum of the values.
 ;
 ;           Decided to use a naive n2 algorithm, which is fine, instead of a 
 ;           sorting algorithm which would get closer to n log n.
-;
-;           Js are now wild and lowest value.
 ;
 ; @file         solution.nasm
 ; @date         06 Dec 2023
@@ -112,7 +110,7 @@ section .bss
 ; Global initialized variables.
 section .data
 
-    test:   db 1, 1, 1, 1, 1
+    test:   db "AQQQQ"
             dq 777, 0, 0
             db 0, 0, 0
 
@@ -268,228 +266,80 @@ section .text
     getSolution:
         push rbp
         mov rbp, rsp
-        push r12                        ; Count of hands.
-        push r13                        ; Hand buffer.
-        push r14                        ; Next line.
-        push r15                        ; Current hand.
+        push r12
+        push r13
+        push r14
+        push r15
 
-        ; Let's convert to binary.
-        ; Count lines.
-        xor rcx, rcx    ; i.
-        xor rdx, rdx    ; count.
-        xor r15, r15    ; Current hand.
+        ; Parse directions.
+        mov r12, rdi                ; Current line.
+        call strLen
 
+        mov r13, rax                ; Array len.
+        mov rdi, rax
+        call memAlloc
 
-        .countLines:
-            mov al, [rdi + rcx]
-            test al, al
-            jz .endCountLines
+        mov r14, rax                ; Direction array.
+        xor rcx, rcx
 
-            cmp al, 10
-            jne .notNewLine
-
-            inc rdx
-
-            .notNewLine:
-                inc rcx
-                jmp .countLines
-
-        .endCountLines:
-            inc rdx     ; For the last line.
-            mov r12, rdx
-
-            ; Allocate structs.
-            mov rax, rdx
-            xor rdx, rdx
-            mov rcx, camel_card_hand_size
-            mul rcx
-            push rdi
-            mov rdi, rax
-            call memAlloc
-
-            mov r13, rax                ; buffer pointer.
-            pop rdi
-        
-        ; Parse file.
-        .while:
-
-            test rdi, rdi
-            jz .endWhile
-
-            call getLine                ; rdi remains current line.
-
-            mov r14, rax                ; Save next line.
-            xor rcx, rcx
-            xor rdx, rdx
-            mov rax, camel_card_hand_size
-            mul r15
-            mov r10, rax
-
-            ; Get numbers.
-            .innerWhile:
-
-                cmp cl, 5
-                je .endInnerWhile
-                
-                ; Parse line.
-                mov dh, byte [rdi + rcx]
-                cmp dh, 'A'
-                je .ace
-
-                cmp dh, 'K'
-                je .king
-
-                cmp dh, 'Q'
-                je .queen
-
-                cmp dh, 'J'
-                je .joker
-
-                cmp dh, 'T'
-                je .ten
-
-                sub dh, '0'
-                jmp .move
-
-                .ace:
-                    mov dh, 14
-                    jmp .move
-                    
-                .king:
-                    mov dh, 13
-                    jmp .move
-                    
-                .queen: 
-                    mov dh, 12
-                    jmp .move
-                    
-                .joker:
-                    mov dh, 1
-                    jmp .move
-
-                .ten:
-                    mov dh, 10
-
-                .move:
-                    mov rax, r10
-                    add ax, cx
-                    mov dl, dh
-                    mov [r13 + rax], dl
-                    inc cl
-                    jmp .innerWhile
-
-            .endInnerWhile:
-                push r10
-                add rdi, 5
-                call scanNumber
-
-                pop r10
-                push r10
-                mov [r13 + r10 + camel_card_hand.cc_bid], rax
-                lea rdi, [r13 + r10]
-                call getHandGrade
-
-                pop r10
-                mov [r13 + r10 + camel_card_hand.cc_score], rax
-                mov qword [r13 + r10 + camel_card_hand.cc_rank], 1
-                mov rdi, r14
-                inc r15
-                jmp .while
-
-        .endWhile:
-
-        ; File parsed. Now need to rank hands.
-        xor r15, r15            ; Current hand.
-        xor rcx, rcx            ; Current second hand.
+        %define L 0
+        %define R 1
 
         .for:
-            cmp r15, r12
+            cmp ecx, r13d
             je .endFor
 
-            xor rdx, rdx
-            mov rax, camel_card_hand_size
-            mul r15
-            mov r10, rax            ; Current hand offset.
-            xor rcx, rcx
+            cmp [r12 + rcx], 'L'
+            je .left
 
-            .innerFor:
-                cmp rcx, r12
-                je .endInnerFor
+            .right:
+                mov [r14 + rcx], L
 
-                xor rdx, rdx
-                mov rax, camel_card_hand_size
-                mul rcx
-                mov r11, rax            ; Second hand offset.
+            .left:
+                mov [r14 + rcx], R
 
-                cmp r15, rcx
-                je .same 
-
-                mov rax, [r13 + r10 + camel_card_hand.cc_score]
-                cmp rax, [r13 + r11 + camel_card_hand.cc_score]
-                je .equal
-                jl .same
-
-                inc qword [r13 + r10 + camel_card_hand.cc_rank]
-                jmp .same
-                xor rdx, rdx
-
-                .equal:
-                    cmp dl, 5
-                    je .same
-
-                    mov rsi, r10
-                    add rsi, rdx
-                    mov r8, r11
-                    add r8, rdx
-                    mov al, [r13 + rsi]
-                    cmp al, [r13 + r8]
-                    jl .same
-
-                    cmp al, [r13 + r8]
-                    je .sameCard
-
-                    inc qword [r13 + r10 + camel_card_hand.cc_rank]
-                    jmp .same
-
-                    .sameCard:
-                        inc dl
-                        jmp .equal
-
-                .same:
-                    inc rcx
-                    jmp .innerFor
-
-            .endInnerFor:
-                inc r15
-                jmp .for
+            inc ecx
+            jmp .for
 
         .endFor:
-            ; Now sum all winnings.
-            xor rcx, rcx
-            xor r8, r8
 
-        .loop:
-            cmp rcx, r12
-            je .end
+        mov rdi, r12
+        call getLine
 
-            xor rdx, rdx
-            mov rax, camel_card_hand_size
-            mul rcx
-            mov r11, rax            ; Hand offset.
+        mov rdi, rax
+        call getLine
 
-            xor rdx, rdx
-            mov rax, [r13 + r11 + camel_card_hand.cc_bid]
-            mul qword [r13 + r11 + camel_card_hand.cc_rank]
-            add r8, rax
-            inc rcx
-            jmp .loop
+        mov r15, rax                ; Next line.
+
+        ; Allocate big table based on location
+        struc loc_tbl
+
+            .loc:   resd    1
+            .left:  resq    1
+            .right: resq    1
+
+        endstruc
+
+        ; Count rows.
+        xor rcx, rcx
+
+        .whileRows:
             
+
+        mov al, loc_tbl_size
+        xor dx, dx
+
+
+        .while:
+            test r15, r15
+            jz .endWhile
+
+            ; Get location. 
+
+
+
+        
         .end:
-            mov rax, r8
-            pop r15
-            pop r14
-            pop r13
-            pop r12
             leave
             ret
 
@@ -500,158 +350,13 @@ section .text
     getHandGrade:
         push rbp
         mov rbp, rsp
-        push rbx
-
-        xor rcx, rcx    ; i.
-        xor dx, dx      ; count.
-        xor r8w, r8w    ; Highest match.
-        inc r8w
-        xor r9w, r9w    ; Number of ones.
-        xor r10, r10    ; Joker present.
-
-        .for:
-            cmp cl, 5
-            je .endFor
-
-            mov al, [rdi + rcx]
-            cmp al, 1
-            jne .noJoker
-
-            inc r10
-
-            .noJoker:
-
-            xor rbx, rbx    ; j.
-            xor rdx, rdx    ; num_matches.
-        
-            .innerFor:
-                cmp bl, 5
-                je .endInnerFor
-
-                mov ah, [rdi + rbx]
-                cmp al, ah
-                jne .noMatch
-
-                inc dx
-
-                .noMatch:
-                    inc bl
-                    jmp .innerFor
-
-            .endInnerFor:
-                inc cl
-
-                cmp dx, r8w
-                cmovg r8w, dx
-                cmp dx, 1
-                jne .for
-
-                inc r9b
-                jmp .for
-
-        .endFor:
-            
-        ; Check number of matches to assign grade.
-        ; no-pair = 1, 1, 1, 1, 1. = 1
-        ; pair = 2, 2, 1, 1, 1. = 2
-        ; two-pair = 2, 2, 2, 2, 1. = 3
-        ; three = 3, 3, 3, 1, 1. = 4
-        ; fullhouse = 3, 3, 3, 2, 2. = 5
-        ; four = 4, 4, 4, 4, 1. = 6
-        ; five = 5, 5, 5, 5, 5 = 7.
-
-        ; with jokers.
-        ; 1         2           3           4           5
-        ; 1 = 2     np          np          np          np
-        ; 2 = 4     2 = 4       np          np          np
-        ; 3 = 5     3 = 6       np          np          np
-        ; 4 = 6     np          4 = 6       np          np
-        ; np        5 = 7       5 = 7       np          np
-        ; 6 = 7     np          np          6 = 7       np
-        ; np        np          np          np          7 = 7
-
-        xor rax, rax
-
-        cmp r8w, 1
-        je .one
-
-        cmp r8w, 2
-        je .two
-
-        cmp r8w, 3
-        je .three
-
-        cmp r8w, 4
-        je .four
-
-        cmp r8w, 5
-        je .five
-        jmp .end
-
-        .one:
-            mov ax, 1
-            cmp r10b, 1
-            je .add_1
-            jmp .end
-
-        .two:
-            cmp r9b, 1
-            je .score3
-
-            mov ax, 2
-            cmp r10b, 1
-            jge .add_2
-            jmp .end
-
-            .score3:
-                mov ax, 3
-                cmp r10b, 1
-                je .add_2
-                cmp r10b, 2
-                je .add_3
-                jmp .end
-
-        .three:
-            cmp r9b, 2
-            je .score4
-
-            mov ax, 5
-            cmp r10b, 1
-            jge .add_2
-            jmp .end
-
-            .score4:
-                mov ax, 4
-                cmp r10b, 1
-                jge .add_2
-                jmp .end
-
-        .four:
-            mov ax, 6
-            cmp r10b, 1
-            jge .add_1
-            jmp .end
-
-        .five:
-            mov ax, 7
-            jmp .end
-
-        .add_3:
-            inc ax
-
-        .add_2:
-            inc ax
-
-        .add_1:
-            inc ax
 
         .end:
-            pop rbx
             leave
             ret
 
     endGetHandGrade:
-    
+
 
     ; char* getNextLine(char* buf);
     ; Returns NULL if no more lines.
@@ -945,6 +650,7 @@ section .text
     endStrLen:
 
 
+    ; void* memAlloc(size_t n);
     memAlloc:
         push rbp
         mov rbp, rsp
