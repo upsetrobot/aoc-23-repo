@@ -1,11 +1,13 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Advent of Code Christmas Challenge Day 7 - Part I
+; Advent of Code Christmas Challenge Day 7 - Part II
 ;
 ; @brief    Take an input file and the rank of each hand and multiply that by 
 ;           the hands bid and return of the sum of the values.
 ;
 ;           Decided to use a naive n2 algorithm, which is fine, instead of a 
 ;           sorting algorithm which would get closer to n log n.
+;
+;           Js are now wild and lowest value.
 ;
 ; @file         solution.nasm
 ; @date         06 Dec 2023
@@ -116,7 +118,7 @@ section .bss
 ; Global initialized variables.
 section .data
 
-    test:   db "AQQQQ"
+    test:   db 1, 1, 1, 1, 1
             dq 777, 0, 0
             db 0, 0, 0
 
@@ -347,7 +349,7 @@ section .text
                 je .queen
 
                 cmp dh, 'J'
-                je .jack
+                je .joker
 
                 cmp dh, 'T'
                 je .ten
@@ -367,8 +369,8 @@ section .text
                     mov dh, 12
                     jmp .move
                     
-                .jack:
-                    mov dh, 11
+                .joker:
+                    mov dh, 1
                     jmp .move
 
                 .ten:
@@ -511,12 +513,20 @@ section .text
         xor r8w, r8w    ; Highest match.
         inc r8w
         xor r9w, r9w    ; Number of ones.
+        xor r10, r10    ; Joker present.
 
         .for:
             cmp cl, 5
             je .endFor
 
             mov al, [rdi + rcx]
+            cmp al, 1
+            jne .noJoker
+
+            inc r10
+
+            .noJoker:
+
             xor rbx, rbx    ; j.
             xor rdx, rdx    ; num_matches.
         
@@ -555,6 +565,17 @@ section .text
         ; fullhouse = 3, 3, 3, 2, 2. = 5
         ; four = 4, 4, 4, 4, 1. = 6
         ; five = 5, 5, 5, 5, 5 = 7.
+
+        ; with jokers.
+        ; 1         2           3           4           5
+        ; 1 = 2     np          np          np          np
+        ; 2 = 4     2 = 4       np          np          np
+        ; 3 = 5     3 = 6       np          np          np
+        ; 4 = 6     np          4 = 6       np          np
+        ; np        5 = 7       5 = 7       np          np
+        ; 6 = 7     np          np          6 = 7       np
+        ; np        np          np          np          7 = 7
+
         xor rax, rax
 
         cmp r8w, 1
@@ -566,16 +587,17 @@ section .text
         cmp r8w, 3
         je .three
 
+        cmp r8w, 4
+        je .four
+
         cmp r8w, 5
         je .five
-
-        mov r10w, 6
-        cmp r8w, 4
-        cmove ax, r10w
         jmp .end
 
         .one:
             mov ax, 1
+            cmp r10b, 1
+            je .add_1
             jmp .end
 
         .two:
@@ -583,10 +605,16 @@ section .text
             je .score3
 
             mov ax, 2
+            cmp r10b, 1
+            jge .add_2
             jmp .end
 
             .score3:
                 mov ax, 3
+                cmp r10b, 1
+                je .add_2
+                cmp r10b, 2
+                je .add_3
                 jmp .end
 
         .three:
@@ -594,14 +622,34 @@ section .text
             je .score4
 
             mov ax, 5
+            cmp r10b, 1
+            jge .add_2
             jmp .end
 
             .score4:
                 mov ax, 4
+                cmp r10b, 1
+                jge .add_2
                 jmp .end
+
+        .four:
+            mov ax, 6
+            cmp r10b, 1
+            jge .add_1
+            jmp .end
 
         .five:
             mov ax, 7
+            jmp .end
+
+        .add_3:
+            inc ax
+
+        .add_2:
+            inc ax
+
+        .add_1:
+            inc ax
 
         .end:
             pop rbx
