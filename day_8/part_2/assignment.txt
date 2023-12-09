@@ -1,36 +1,49 @@
 --- Part Two ---
 
-To make things a little more interesting, the Elf introduces one additional
-rule. Now, J cards are jokers - wildcards that can act like whatever card would
-make the hand the strongest type possible.
+The sandstorm is upon you and you aren't any closer to escaping the wasteland.
+You had the camel follow the instructions, but you've barely left your starting
+position. It's going to take significantly more steps to escape!
 
-To balance this, J cards are now the weakest individual cards, weaker even than
-2. The other cards stay in the same order: A, K, Q, T, 9, 8, 7, 6, 5, 4, 3, 2,
-J.
+What if the map isn't for people - what if the map is for ghosts? Are ghosts
+even bound by the laws of spacetime? Only one way to find out.
 
-J cards can pretend to be whatever card is best for the purpose of determining
-hand type; for example, QJJQ2 is now considered four of a kind. However, for
-the purpose of breaking ties between two hands of the same type, J is always
-treated as J, not the card it's pretending to be: JKKK2 is weaker than QQQQ2
-because J is weaker than Q.
+After examining the maps a bit longer, your attention is drawn to a curious
+fact: the number of nodes with names ending in A is equal to the number ending
+in Z! If you were a ghost, you'd probably just start at every node that ends
+with A and follow all of the paths at the same time until they all
+simultaneously end up at nodes that end with Z.
 
-Now, the above example goes very differently:
+For example:
 
-32T3K 765
-T55J5 684
-KK677 28
-KTJJT 220
-QQQJA 483
+LR
 
-    - 32T3K is still the only one pair; it doesn't contain any jokers, so its
-    strength doesn't increase.
-    - KK677 is now the only two pair, making it the second-weakest hand.
-    - T55J5, KTJJT, and QQQJA are now all four of a kind! T55J5 gets rank 3,
-    QQQJA gets rank 4, and KTJJT gets rank 5.
+11A = (11B, XXX)
+11B = (XXX, 11Z)
+11Z = (11B, XXX)
+22A = (22B, XXX)
+22B = (22C, 22C)
+22C = (22Z, 22Z)
+22Z = (22B, 22B)
+XXX = (XXX, XXX)
 
-With the new joker rule, the total winnings in this example are 5905.
+Here, there are two starting nodes, 11A and 22A (because they both end with A).
+As you follow each left/right instruction, use that instruction to
+simultaneously navigate away from both nodes you're currently on. Repeat this
+process until all of the nodes you're currently on end with Z. (If only some of
+the nodes you're on end with Z, they act like any other node and you continue
+as normal.) In this example, you would proceed as follows:
 
-Using the new joker rule, find the rank of every hand in your set. What are the
-new total winnings?
+    - Step 0: You are at 11A and 22A.
+    - Step 1: You choose all of the left paths, leading you to 11B and 22B.
+    - Step 2: You choose all of the right paths, leading you to 11Z and 22C.
+    - Step 3: You choose all of the left paths, leading you to 11B and 22Z.
+    - Step 4: You choose all of the right paths, leading you to 11Z and 22B.
+    - Step 5: You choose all of the left paths, leading you to 11B and 22C.
+    - Step 6: You choose all of the right paths, leading you to 11Z and 22Z.
 
-Answer:
+So, in this example, you end up entirely on nodes that end in Z after 6 steps.
+
+Simultaneously start on every node that ends with A. How many steps does it
+take before you're only on nodes that end with Z?
+
+Answer: 

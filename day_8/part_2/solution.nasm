@@ -1,30 +1,21 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Advent of Code Christmas Challenge Day 8 - Part I
+; Advent of Code Christmas Challenge Day 8 - Part II
 ;
 ; @brief    Find number of steps in links of a map to get from one point to 
 ;           another given directions to go right or left.
 ;
-;           This time start at all nodes ending with 'A' and find the number 
-;           steps till they all end on a node ending with 'Z'.
+;           Approach is naive due to high number of solution. Considering 
+;           finding a better solution.
 ;
-;           Was proud of using value based table array for part 1. However,
-;           This part required going down multiples paths and my algorithm 
-;           proved naive. Took too long.
-;
-;           A better approach may to count distance from each A to first Z.
-;           Then, count distance from Z to next Z. Then, there may be a 
-;           mathematical solution. Maybe min'ing using somekind of dp or 
-;           maybe some graph traversal.
-;
-;           So, there don't seem to be any links to As, just from them. 
-;           Due to the left right binary nature, it appears there may be an 
-;           even odd thing going on. If the links between a A and Z is even 
-;           or at whatever interval for loops, every other A-Z connecton 
-;           may also need to be the multiple of interval so the happen at some 
-;           time.
+;           After testing, you can find that each subsequent Z match is a 
+;           multiple of the first match. In other words, there is a Z match 
+;           every X directions. So, all you have to do is find a number that 
+;           has factors of all six rotations. This is the LCM thing. 
+;           To find the LCM, there are several methods. I am choosing Euclids 
+;           algorithm for GCF and then (a*b)/GCF(a, b) for LCM.
 ;
 ; @file         solution.nasm
-; @date         08 Dec 2023
+; @date         09 Dec 2023
 ; @author       upsetrobot
 ; @copyright    Copyright (c) 2023
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -432,78 +423,56 @@ section .text
 
         .endLoop:
 
-        ; Get condition.
-        xor rcx, rcx            ; i for directions.
-        xor r10, r10            ; i for As array.
-        xor rax, rax            ; count.
-        xor rdx, rdx            ; curr_index.
+        ; This is where my solution was not working due to the time complexity 
+        ; of counting too high for part II.
+        ; New solution requires cycle analysis perhaps.
+
+        ; Save steps for each first Z.
+        ; r12 = loc_tbl.
+        ; r13 = LR_arr_len.
+        ; r14 = LR_arr.
+        ; r15 = arr_of_As.
+        ; rbx = arr_of_As_len
         xor r9, r9
-        
-        .whileNotAllZ:
-            cmp r9d, ebx            ; num_zs, num_as.
-            je .endWhileNotAllZ
+        xor r10, r10
+        xor r11, r11
+        mov rdi, r12
+        mov r15, rsi
+        xor rsi, rsi
 
-            xor r9, r9              ; num_zs.
-            xor r10d, r10d
-            cmp ecx, r13d
-            jne .dontRotate
-
-            xor ecx, ecx
+        .saveFactors:
+            cmp r10, rbx
+            je .endSaveFactors
             
-            .dontRotate:
-                cmp byte [r14 + rcx], R
-                je .goRight
+            mov si, [r15 + r10*2]
+            mov rdx, r14
+            xor rcx, rcx
+            mov r8, r13
+            call getNextZ
 
-            .goLeft:
+            push rax
+            inc r10
+            jmp .saveFactors
 
-                .forLeft:
-                    cmp r10d, ebx
-                    je .endForLeft
+        .endSaveFactors:
 
-                    ; Get current index.
-                    mov dx, [rsi + r10*2]
-                    mov dx, [r12 + rdx*loc_tbl_size]
-                    mov [rsi + r10*2], dx
-                    inc r10d
+        ; Find LCM of all saved Z steps.
+        xor rcx, rcx
+        xor rdi, rdi
+        inc rdi
 
-                    and dx, 0x1f
-                    cmp dx, 0x19
-                    jne .forLeft
+        .forZs:
+            cmp rcx, rbx
+            je .endForZs
 
-                    inc r9d
-                    jmp .forLeft
+            pop rsi
+            call findLCM
 
-                .endForLeft:
+            mov rdi, rax
+            inc rcx
+            jmp .forZs
 
-                jmp .contWhileNotAllZ
-
-            .goRight:
-
-                .forRight:
-                    cmp r10d, ebx
-                    je .endForRight
-
-                    ; Get current index.
-                    mov dx, [rsi + r10*2]
-                    mov dx, [r12 + rdx*loc_tbl_size + loc_tbl.right]
-                    mov [rsi + r10*2], dx
-                    inc r10d
-                    
-                    and dx, 0x1f
-                    cmp dx, 0x19
-                    jne .forRight
-
-                    inc r9d
-                    jmp .forRight
-
-                .endForRight:
-
-            .contWhileNotAllZ:
-                inc ecx
-                inc rax
-                jmp .whileNotAllZ
-
-        .endWhileNotAllZ:
+        .endForZs:
 
         .end:
             pop rbx
@@ -515,6 +484,105 @@ section .text
             ret
 
     endGetSolution:
+
+
+    ; size_t getNextZ(short* table, short currNode, char* directionTbl, uint directionIdx, size_t directionTblLen, );
+    ; Returns number of steps. rsi is changed to new node.
+    getNextZ:
+        push rbp
+        mov rbp, rsp
+
+        xor rax, rax
+
+        .loop:
+            cmp rcx, r8
+            jne .dontRotate
+
+            xor rcx, rcx
+
+            .dontRotate:
+
+            cmp byte [rdx + rcx], R
+            je .right
+
+            .left:
+                inc rax
+                mov r9w, [rdi + rsi*loc_tbl_size + loc_tbl.left]
+                mov si, r9w
+                and r9w, 0x1f
+                cmp r9w, 0x19            ; 'Z' value.
+                je .end
+
+                inc rcx
+                jmp .loop
+
+            .right:
+                inc rax
+                mov r9w, [rdi + rsi*loc_tbl_size + loc_tbl.right]
+                mov si, r9w
+                and r9w, 0x1f
+                cmp r9w, 0x19            ; 'Z' value.
+                je .end
+
+                inc rcx
+                jmp .loop
+
+        .endLoop:
+
+        .end:
+            leave
+            ret
+
+    .endGetNextZ:
+
+
+    ; size_t findLCM(size_t a, size_t b);
+    ; Returns the LCM of a and b.
+    findLCM:
+        push rbp
+        mov rbp, rsp
+        push r12
+        push r13
+
+        mov r12, rdi        ; a.
+        mov r13, rsi        ; b.
+
+        ; Find greater number.
+        cmp rdi, rsi
+        jge .whileNot0
+
+        xchg rdi, rsi
+
+        ; Find gcf(a, b).
+        .whileNot0:
+            test rsi, rsi
+            jz .endWhileNot0
+
+            cmp rdi, rsi
+            jge .cont
+
+            xchg rdi, rsi
+
+            .cont:
+                sub rdi, rsi
+                jmp .whileNot0
+        
+        .endWhileNot0:
+
+        ; rdi = gcf.
+        mov rax, r12
+        xor rdx, rdx
+        mul r13
+        xor rdx, rdx
+        div rdi
+
+        .end:
+            pop r13
+            pop r12
+            leave
+            ret
+
+    .endFindLCM:
 
 
     ; char* getNextLine(char* buf);
