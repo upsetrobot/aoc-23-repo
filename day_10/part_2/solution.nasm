@@ -1,7 +1,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Advent of Code Christmas Challenge Day 10 - Part I
+; Advent of Code Christmas Challenge Day 10 - Part II
 ;
-; @brief    Find the total number of steps in both directions that is equal.
+; @brief    Find the total number of tiles enclosed by the loop.
 ;
 ; @file         solution.nasm
 ; @date         10 Dec 2023
@@ -31,6 +31,11 @@
 %define FALSE   0
 
 %define MAX_INT_STR_LEN 21
+
+%define FROM_LEFT   0
+%define FROM_RIGHT  1
+%define FROM_DOWN   2
+%define FROM_UP     3
 
 struc sb
 
@@ -249,13 +254,8 @@ section .text
         push r14
         push r15
 
-        mov r12, rdi
-
-        %define FROM_LEFT   0
-        %define FROM_RIGHT  1
-        %define FROM_DOWN   2
-        %define FROM_UP     3
-        
+        mov r12, rdi                    ; buf.
+                
         ; Count line length so you can move up and down.
         xor rcx, rcx
         dec rcx
@@ -274,12 +274,178 @@ section .text
         repne scasb
         dec rdi
 
-        mov r14, rdi                    ; Start.
-        xor r15, r15                    ; count.
+        mov r14, rdi                    ; start_loc.
+
+        ; This one was surprisingly hard for.  I come up with two possible 
+        ; solution. One is to walk the line and note patterns of direction 
+        ; changes and to use the length inbetween angles and the directions 
+        ; of the angles to divide all spaces into rectangles and to add up the 
+        ; areas. The second option is to get into loop somehow and to scan all 
+        ; spaces marking them with a marker following the wall till you get 
+        ; back to where you started, then to scan the whole buffer counting 
+        ; the markers. There are two challenges with the second approach: one 
+        ; is getting in the loop, and two is accounting for hallways with 
+        ; no width. I chose to try the second (which is more inefficient but 
+        ; seemed like it may be easier to implement).
+
+        ; Step 1, get in the loop. 
+        ; If I start at 'S', I can move up, down, left, or right. One of those 
+        ; is the loop at least. If I land on an angle connected to the 'S', 
+        ; then I am still on the wall. Otherwise, I am in or out of the loop. 
+        ; If the 'S' is on a corner, then in is diagonal from or toward the 
+        ; angle. It seems like I should follow the wall till I get to 
+        ; horizontal or vertical line to avoid that. This method would assume 
+        ; that the loop has at least one of horizontal or vertical traversal 
+        ; which is fine (or if I cared, I could even error out in that case).
+        ; If it is '-', then in is one side and out is the other. Same for '|' 
+        ; but it is left or right instead of up or down. 
+        ; So, if I scan one side until I find the sides of the map, then I 
+        ; need to go back to the location and map the other side. I also will 
+        ; need to reset the buffer. Bottom + down > buf + size; right + right 
+        ; = \n or null; left + left = \n (or < buf); top + up < buf.
+        ; So, I need a loadBuffer func. 
+        ; I need a markArea func.
+        ; I need a getStart func.
+        ; Then, loadBuffer, getStart, (move over), markArea (if fail, 
+        ; loadBuffer go back to start and move other over, then markArea again)
+        ; and then countMarks. 
+        ; Actually, I am gonna need to mark lines as well.
+        ; Actually, fuck all that. I'm gonna scan from top and set rules for 
+        ; counting which involve corners.
+
+        ; r12, buf.
+        ; r13, line_len.
+        ; r14, s_loc.
+
+        std
+
+        ; Mark loop.
+        mov rdi, r14
+        mov rsi, r13
+        call markBorder
+
+        ; Start scan. 
+        mov rdi, r12
+        xor rax, rax
+        xor rcx, rcx
+
+        .whileNext:
+            cmp byte [rdi], 0
+            jz .endWhileNext
+
+            mov cl, byte [rdi]
+            cmp cl, '~'
+            jb .background
+
+            mov cl, [rdi]
+            sub cl, '~'
+            cmp cl, '|'
+            je .vertical
+            
+            cmp cl, 'F'
+            je .horizTop
+
+            cmp cl, 'L'
+            je .horizBottom
+
+            .vertical:
+                inc rdi
+
+                .whileInside:
+                    mov cl, byte [rdi]
+                    cmp cl, '~'
+                    jb .mark
+
+                    mov cl, [rdi]
+                    sub cl, '~'
+                    cmp cl, '|'
+                    je .background
+
+                    cmp cl, 'L'
+                    je .horizTop
+
+                    cmp cl, 'F'
+                    je .horizBottom
+
+                    .mark:
+                        inc rdi
+                        inc rax
+                        jmp .whileInside
+
+                .endWhileInside:
+
+            .horizTop:
+                inc rdi
+
+                .whileTop:
+                    mov cl, [rdi]
+                    sub cl, '~'
+                    cmp cl, '-'
+                    je .continueTop
+
+                    cmp cl, '7'
+                    je .background
+
+                    cmp cl, 'J'
+                    je .vertical
+
+                    .continueTop:
+                        inc rdi
+                        jmp .whileTop
+
+                .endWhileTop:
+
+            .horizBottom:
+                inc rdi
+
+                .whileBottom:
+                    mov cl, [rdi]
+                    sub cl, '~'
+                    cmp cl, '-'
+                    je .continueBottom
+
+                    cmp cl, '7'
+                    je .vertical
+
+                    cmp cl, 'J'
+                    je .background
+
+                    .continueBottom:
+                        inc rdi
+                        jmp .whileBottom
+
+                .endWhileBottom:
+
+            .background:
+                inc rdi
+                jmp .whileNext
+
+        .endWhileNext:
+
+        .end:
+            pop r15
+            pop r14
+            pop r13
+            pop r12
+            leave
+            ret
+
+    ; End getSolution.
+
+
+    ; void markBorder(char* start, size_t line_len);
+    ; Marks border.
+    markBorder:
+        push rbp
+        mov rbp, rsp
+
+        mov r10, rdi                    ; Start.
+        xor rax, rax
+
         jmp .checkAbove
 
         .while:
-            cmp rdi, r14
+            cmp rdi, r10
             je .endWhile
 
             cmp byte [rdi], '|'
@@ -332,84 +498,246 @@ section .text
 
             .checkAbove:
                 mov r9, rdi
-                sub r9, r13
+                sub r9, rsi
                 cmp byte [r9], '|'
-                je .up
+                je .goingUp
 
                 cmp byte [r9], 'F'
-                je .up
+                je .goingUp
 
                 cmp byte [r9], '7'
-                je .up
+                je .goingUp
+                jmp .checkRight
+
+                .goingUp:
+                    cmp byte [rdi + rsi], '|'
+                    je .cVert1
+
+                    cmp byte [rdi + rsi], 'L'
+                    je .cVert1
+
+                    cmp byte [rdi + rsi], 'J'
+                    je .cVert1
+
+                    cmp byte [rdi + 1], '-'
+                    je .cL1
+
+                    cmp byte [rdi + 1], 'J'
+                    je .cL1
+
+                    cmp byte [rdi + 1], '7'
+                    je .cL1
+
+                    cmp byte [rdi - 1], '-'
+                    je .cJ1
+
+                    cmp byte [rdi - 1], 'L'
+                    je .cJ1
+
+                    cmp byte [rdi - 1], 'F'
+                    je .cJ1
+
+                    .cVert1:
+                        mov byte [rdi], '|'
+                        jmp .up
+
+                    .cL1:
+                        mov byte [rdi], 'L'
+                        jmp .up
+
+                    .cJ1:
+                        mov byte [rdi], 'J'
+                        jmp .up
 
             .checkRight:
                 cmp byte [rdi + 1], '-'
-                je .right
+                je .goingRight
 
                 cmp byte [rdi + 1], 'J'
-                je .right
+                je .goingRight
 
                 cmp byte [rdi + 1], '7'
-                je .right
+                je .goingRight
+                jmp .checkBelow
+
+                .goingRight:
+                    mov r9, rdi
+                    sub r9, rsi
+                    cmp byte [r9], '|'
+                    je .cVert2
+
+                    cmp byte [r9], '7'
+                    je .cVert2
+
+                    cmp byte [r9], 'F'
+                    je .cVert2
+
+                    cmp byte [rdi + rsi], '|'
+                    je .cL2
+
+                    cmp byte [rdi + rsi], 'J'
+                    je .cL2
+
+                    cmp byte [rdi + rsi], 'L'
+                    je .cL2
+
+                    cmp byte [rdi - 1], '-'
+                    je .cJ2
+
+                    cmp byte [rdi - 1], 'L'
+                    je .cJ2
+
+                    cmp byte [rdi - 1], 'F'
+                    je .cJ2
+
+                    .cVert2:
+                        mov byte [rdi], 'L'
+                        jmp .right
+
+                    .cL2:
+                        mov byte [rdi], 'F'
+                        jmp .right
+
+                    .cJ2:
+                        mov byte [rdi], '-'
+                        jmp .right
 
             .checkBelow:
-                cmp byte [rdi + r13], '|'
-                je .down
+                cmp byte [rdi + rsi], '|'
+                je .goingDown
 
-                cmp byte [rdi + r13], 'L'
-                je .down
+                cmp byte [rdi + rsi], 'L'
+                je .goingDown
 
-                cmp byte [rdi + r13], 'J'
-                je .down
+                cmp byte [rdi + rsi], 'J'
+                je .goingDown
+                jmp .checkLeft
+
+                .goingDown:
+                    mov r9, rdi
+                    sub r9, rsi
+                    cmp byte [r9], '|'
+                    je .cVert3
+
+                    cmp byte [r9], '7'
+                    je .cVert3
+
+                    cmp byte [r9], 'F'
+                    je .cVert3
+
+                    cmp byte [rdi + 1], '-'
+                    je .cL3
+
+                    cmp byte [rdi + 1], 'J'
+                    je .cL3
+
+                    cmp byte [rdi + 1], '7'
+                    je .cL3
+
+                    cmp byte [rdi - 1], '-'
+                    je .cJ3
+
+                    cmp byte [rdi - 1], 'L'
+                    je .cJ3
+
+                    cmp byte [rdi - 1], 'F'
+                    je .cJ3
+
+                    .cVert3:
+                        mov byte [rdi], '|'
+                        jmp .down
+
+                    .cL3:
+                        mov byte [rdi], 'F'
+                        jmp .down
+
+                    .cJ3:
+                        mov byte [rdi], '7'
+                        jmp .down
 
             .checkLeft:
                 cmp byte [rdi - 1], '-'
-                je .left
+                je .goingLeft
 
                 cmp byte [rdi - 1], 'L'
-                je .left
+                je .goingLeft
 
                 cmp byte [rdi - 1], 'F'
-                je .left
+                je .goingLeft
+
+                .goingLeft:
+                    mov r9, rdi
+                    sub r9, rsi
+                    cmp byte [r9], '|'
+                    je .cVert4
+
+                    cmp byte [r9], '7'
+                    je .cVert4
+
+                    cmp byte [r9], 'F'
+                    je .cVert4
+
+                    cmp byte [rdi + 1], '-'
+                    je .cL4
+
+                    cmp byte [rdi + 1], 'J'
+                    je .cL4
+
+                    cmp byte [rdi + 1], '7'
+                    je .cL4
+
+                    cmp byte [rdi + rsi], '|'
+                    je .cJ4
+
+                    cmp byte [rdi + rsi], 'L'
+                    je .cJ4
+
+                    cmp byte [rdi + rsi], 'J'
+                    je .cJ4
+
+                    .cVert4:
+                        mov byte [rdi], 'J'
+                        jmp .left
+
+                    .cL4:
+                        mov byte [rdi], '-'
+                        jmp .left
+
+                    .cJ4:
+                        mov byte [rdi], '7'
+                        jmp .left
 
             .up:
-                sub rdi, r13
-                inc r15
+                add byte [rdi], '~'
+                sub rdi, rsi
                 mov r8, FROM_DOWN
                 jmp .while
 
             .right:
+                add byte [rdi], '~'
                 inc rdi
-                inc r15
                 mov r8, FROM_LEFT
                 jmp .while
 
             .left:
+                add byte [rdi], '~'
                 dec rdi
-                inc r15
                 mov r8, FROM_RIGHT
                 jmp .while
 
             .down:
-                add rdi, r13
-                inc r15
+                add byte [rdi], '~'
+                add rdi, rsi
                 mov r8, FROM_UP
                 jmp .while
 
         .endWhile:
 
-        mov rax, r15
-        shr rax, 1
-
         .end:
-            pop r15
-            pop r14
-            pop r13
-            pop r12
             leave
             ret
-    
-    ; End getSolution.
+
+    ; End markBorder.
 
     
     ; char* getNextLine(char* buf);

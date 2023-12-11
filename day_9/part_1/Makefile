@@ -21,6 +21,7 @@ AFLAGS = 	-f elf64
 
 run: rebuild clean
 	valgrind ./$(PROGRAM)
+	rm -f $(PROGRAM)
 
 rebuild : clean_all build
 
