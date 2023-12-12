@@ -53,7 +53,7 @@ section .rodata
 ; Global uninitialized variables.
 section .bss
 
-    num_str:    resb    MAX_INT_STR_LEN
+    ;
 
 
 ; Global initialized variables.
@@ -66,12 +66,14 @@ section .data
 section .text
 
     global main
-    extern getFile
-    extern numToStr
-    extern print
-    extern memAlloc
 
-    ; Main function.
+    ; int main();
+    ;
+    ; @brief    Main function.
+    ;
+    ; @return   int Returns EXIT_SUCCESS if no errors; otherwise returns 
+    ;               EXIT_FAILURE.
+    ;
     main:
         push rbp
         mov rbp, rsp
@@ -89,16 +91,18 @@ section .text
         mov rsi, 1
         call numToStr
 
+        push rax
+
         mov rdi, msg
         xor rsi, rsi
         call print
 
-        mov rdi, num_str
+        pop rdi
         xor rsi, rsi
         inc sil
         call print
 
-        xor rax, rax                ; FUNC_SUCCESS.
+        xor rax, rax                ; EXIT_SUCCESS.
         jmp .end
 
         .err:
@@ -118,11 +122,43 @@ section .text
 
 
     ; size_t getSolution(char* fileBuffer);
+    ;
+    ; @brief    Solves problem and returns solution value.
+    ;
+    ; @return   size_t  Returns solution value.
     getSolution:
         push rbp
         mov rbp, rsp
+        push r12
         
-        mov rax, 10
+        .whileLines:
+            test rdi, rdi
+            je .endWhileLines
+
+            call getLine
+
+            mov r12, rax                    ; nxt_line.
+
+            ; Parse symbols.
+            .parseSymbols:
+                cmp byte [rdi + rcx], ' '
+                je .endParseSymbols
+
+                cmp byte [rdi + rcx], '?'
+                je .question
+
+                cmp byte [rdi], '.'
+                je .dot
+
+                cmp byte [rdi], '#'
+                je .pound
+
+                
+
+            ; Parse numbers.
+            .parseNumbers:
+
+        .endWhileLines:
         
         .end:
             leave

@@ -94,6 +94,7 @@ section .rodata
 section .bss
 
     stat_buf:   resb    sb_size
+    num_str:    resb    MAX_INT_STR_LEN
 
 
 ; Global initialized variables.
@@ -121,7 +122,7 @@ section .text
         push r13
         push r14
 
-        mov rdi, r12
+        mov r12, rdi
 
         ; Open file.
         ; int open(const char *pathname, int flags, mode_t mode);
@@ -169,7 +170,7 @@ section .text
         ; ssize_t read(int fd, void *buf, size_t count);
         mov edi, r13d
         mov rsi, rax
-        mov rdx, [r13 + file.size]
+        mov rdx, [r14 + file.size]
         mov rax, SYS_READ
         syscall
 
@@ -177,8 +178,8 @@ section .text
         js .errClose
 
         ; Null terminate memory.
-        mov rax, [r13]
-        mov rcx, [r13 + file.size]
+        mov rax, [r14]
+        mov rcx, [r14 + file.size]
         mov byte [rax + rcx], 0
 
         ; Close file.
@@ -276,9 +277,11 @@ section .text
     ;           and negative integers.
     ;
     ; @return   long long   Signed integer if found; Returns 
-    ;                       0x7FFFFFFFFFFFFFFF if 
-    ; Returns value in rax, first digit ptr in rsi, last digit in rdi.
-    ; Returns -1 if error (eventhough unsigned which is stupid.)
+    ;                       0x7FFFFFFFFFFFFFFF if no number was found.
+    ;
+    ; @todo     Find better solution.
+    ; @todo     Review and improve implementation.
+    ;
     scanNumber:
         push rbp
         mov rbp, rsp
@@ -399,8 +402,12 @@ section .text
 
 
     ; char* numToStr(size_t num, bool signed);
-    ; Fill buffer with digits based on number (i.e. convert number to str).
-    ; Returns pointer to buffer.
+    ;
+    ; @brief    Fill buffer with digits based on number (i.e. convert number 
+    ;           to str).
+    ;
+    ; @return   Returns pointer to buffer.
+    ;
     numToStr:
         push rbp
         mov rbp, rsp
