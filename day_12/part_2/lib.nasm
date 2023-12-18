@@ -11,6 +11,8 @@
 ;               scanf       called scanNumber (just for integers)
 ;               strlen      called strLen
 ;               malloc      called memAlloc
+;               free        called memDealloc (not dynamic; can only be used 
+;                           on last allocation and takes the size)
 ;
 ;           Also includes:
 ;               print
@@ -86,7 +88,7 @@ section .rodata
     err_scanNumber          db  "Error scanNumber", 10, 0
     err_scanNumber_len      equ $ - err_scanNumber
 
-    nl                      db  10
+    nl                      db  10, 0
     nl_len                  equ $ - nl
 
 
@@ -611,19 +613,24 @@ section .text
         push r12
         push rbx
 
+        push rdi
+
         xor rbx, rbx
         mov rax, SYS_BRK
         syscall
+
+        pop r12
+        mov rsi, rax
 
         mov rdi, rax
         sub rdi, r12
         mov rax, SYS_BRK
         syscall
 
-        cmp rax, r12
+        cmp rax, rsi
         je .err
 
-        mov rax, r12
+        mov rax, rsi
         jmp .end
 
         .err:

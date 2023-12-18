@@ -11,6 +11,8 @@
 ;               scanf       called scanNumber (just for integers)
 ;               strlen      called strLen
 ;               malloc      called memAlloc
+;               free        called memDealloc (not dynamic; can only be used 
+;                           on last allocation and takes the size)
 ;
 ;           Also includes:
 ;               print
