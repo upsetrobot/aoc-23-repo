@@ -172,22 +172,27 @@ section .text
 
             ; Check for reflection rows.
             mov rdi, r9
+            xor rdx, rdx                ; num above.
             xor r11, r11
+            lea r14, [r10 + 1]
+            sub r14, r8                 ; last row.
+            mov rsi, rdi
 
             .checkRefRows:
-                lea rdi, [rdi + r8]
                 cmp rdi, r10
-                jge .endCheckRefRows
+                jg .endCheckRefRows
 
                 ; Check for reflection.
                 mov rsi, rdi
-                xor rdx, rdx
-                push rdi
-
+                add rdi, r8
+                inc rdx
+                
                 .whileRefRow:
-                    sub rdi, r8
-                    cmp rdi, r9
+                    cmp rsi, r9
                     jl .endWhileRefRow
+
+                    cmp rdi, r10
+                    jg .endWhileRefRow
 
                     push rdi
                     push rsi
@@ -203,25 +208,20 @@ section .text
                         jmp .endWhileRefRow
 
                     .matchRow:
-                        inc rdx
-                        add rsi, r8
+                        sub rsi, r8
+                        add rdi, r8
+                        cmp rdi, r10
+                        jg .foundRefRow
                         jmp .whileRefRow
 
                 .endWhileRefRow:
-
-                pop rdi
-                cmp r11, rdx
-                jl .swapMaxRow
-                jmp .checkRefRows
-
-                .swapMaxRow:
-                    mov r11, rdx
                     jmp .checkRefRows
+
+                .foundRefRow:
+                    mov r11, rdx
 
             .endCheckRefRows:
 
-            inc r1
-int3
             ; I think there is only horizontal or vertical reflection, not 
             ; both.
             test r11, r11
@@ -229,6 +229,7 @@ int3
 
             ; Check for reflection columns.
             mov rdi, r9
+            xor rdx, rdx
             xor r11, r11
 
             .checkRefCols:
@@ -239,8 +240,7 @@ int3
 
                 ; Check for reflection.
                 mov rsi, rdi
-                xor rdx, rdx
-                push rdi
+                inc rdx
 
                 .whileRefCols:
                     dec rsi
@@ -263,27 +263,30 @@ int3
                         jmp .checkCols
 
                     .endCheckCols:
+                        pop rsi
+                        pop rdi
 
                     .matchCols:
-                        inc rdx
                         dec rsi
-                        jmp .whileRefCols
+                        inc rdi
+                        lea r14, [r9 + r8]
+                        cmp rdi, r14
+                        jge .foundRefCol
+                        jmp .endWhileRefCols
 
                     .noMatchCols:
-                        jmp .endWhileRefCols                    
+                        pop rsi
+                        pop rdi
+                        jmp .whileRefCols
 
                 .endWhileRefCols:
 
-                pop rdi
-                cmp r11, rdx
-                jl .swapMaxCols
-                jmp .checkRefCols
-
-                .swapMaxCols:
+                .foundRefCol:
                     mov r11, rdx
-                    jmp .checkRefCols
-
+int3
             .endCheckRefCols:
+            
+            add r12, r11
 
             ; Check for last image.
             test r13, r13
@@ -294,7 +297,7 @@ int3
             jmp .whileImage
 
         .endWhileImage:
-            mov rax, r11
+            mov rax, r12
 
         .end:
             pop r12
