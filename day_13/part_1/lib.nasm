@@ -160,7 +160,7 @@ section .text
         ; Reserve memory.
         ; void* malloc(size_t size);
         mov rdi, rax
-        inc rdi
+        add rdi, 2
         call memAlloc
 
         test rax, rax
@@ -183,6 +183,7 @@ section .text
         mov rax, [r14]
         mov rcx, [r14 + file.size]
         mov byte [rax + rcx], 0
+        mov byte [rax + rcx + 1], 0
 
         ; Close file.
         ; int close(int fd);
