@@ -120,186 +120,126 @@ section .text
         push rbp
         mov rbp, rsp
         push r12
+        push r13
+        push r14
+        push r15
 
         xor r12, r12                ; sum.
-
-        ; Find last image.
+        xor rcx, rcx
+        not rcx
         push rdi
-        call strLen
-        
+        cld
+        mov al, 0xa
+        repne scasb
+        not rcx
         pop rdi
-        mov byte [rdi + rax], 0xa
+        mov r8, rcx                 ; line_len.
+        
+        .whileImg:
+            cmp byte [rdi], 0
+            je .endWhileImg
 
-        xor r13, r13                ; last_img.
+            cmp byte [rdi], 0xa
+            jne .setupImg
 
-        .whileImage:
+            add rdi, 2
 
-            ; Get line_len.
-            xor rcx, rcx
-            not rcx
-            cld
-            push rdi
-            mov al, 0xa
-            repne scasb
-            pop rdi
-            not rcx
-            mov r8, rcx             ; line_len (with newline).
-
-            ; Get first and last position.
-            mov r9, rdi             ; first_pos.
-            mov r10, rdi
-            xor rdx, rdx
-
-            .lookDoubleNewLine:
-                xor rcx, rcx
-                not rcx
-                cld
-                repne scasb
-                not rcx
-                cmp byte [rdi], 0xa
-                je .endLookDoubleNewLine
-
-                cmp byte [rdi], 0
-                jne .lookDoubleNewLine
-
-                ; Found last image, flag.
-                mov r13, 1
-
-            .endLookDoubleNewLine:
-
-            dec rdi
-            mov r10, rdi            ; last_pos.
-
-            ; Check for reflection rows.
-            mov rdi, r9
-            xor rdx, rdx                ; num above.
-            xor r11, r11
-            lea r14, [r10 + 1]
-            sub r14, r8                 ; last row.
-            mov rsi, rdi
-
-            .checkRefRows:
-                cmp rdi, r10
-                jg .endCheckRefRows
-
-                ; Check for reflection.
-                mov rsi, rdi
+            .setupImg:
+                mov r9, rdi                 ; top_left.
                 add rdi, r8
-                inc rdx
-                
-                .whileRefRow:
-                    cmp rsi, r9
-                    jl .endWhileRefRow
 
-                    cmp rdi, r10
-                    jg .endWhileRefRow
+                .findBottomRight:
+                    cmp byte [rdi], 0xa
+                    je .endFindBottomRight
 
-                    push rdi
-                    push rsi
-                    mov rcx, r8
-                    cld
-                    repe cmpsb
-                    pop rsi
-                    pop rdi
-                    test rcx, rcx
-                    jz .matchRow
+                    dec rdi
+                    cmp byte [rdi], 0
+                    je .endFindBottomRight
 
-                    .noMatchRow:
-                        jmp .endWhileRefRow
+                    inc rdi
+                    add rdi, r8
+                    jmp .findBottomRight
 
-                    .matchRow:
-                        sub rsi, r8
-                        add rdi, r8
-                        cmp rdi, r10
-                        jg .foundRefRow
-                        jmp .whileRefRow
+                .endFindBottomRight:
+                    dec rdi
+                    mov r10, rdi            ; bottom_right.
 
-                .endWhileRefRow:
-                    jmp .checkRefRows
+            mov rdi, r9            
+            lea r11, [rdi + r8 - 2]         ; end_cols.
+            mov r15, rdi                    ; cols.
+            xor rdx, rdx                    ; cols.
 
-                .foundRefRow:
-                    mov r11, rdx
+            ; Better to start in middle, then go left or right. ugh.
 
-            .endCheckRefRows:
+            .getCols:
+                cmp rdi, r11
+                je .endGetCols
 
-            ; I think there is only horizontal or vertical reflection, not 
-            ; both.
-            test r11, r11
-            jnz .endCheckRefCols
-
-            ; Check for reflection columns.
-            mov rdi, r9
-            xor rdx, rdx
-            xor r11, r11
-
-            .checkRefCols:
-                lea rax, [rdi + r8]
-                lea rdi, [rdi + 1]                
-                cmp rdi, rax
-                jge .endCheckRefCols
-
-                ; Check for reflection.
                 mov rsi, rdi
+                inc rsi
                 inc rdx
+                mov r13, rdi                ; top.
+                mov r14, rsi                ; top2.
 
-                .whileRefCols:
-                    dec rsi
-                    cmp rsi, r9
-                    jl .endWhileRefCols
+                .checkCol:
+                    mov al, [rdi]
+                    cmp al, [rsi]
+                    jne .endCheckCol
 
-                    push rdi
-                    push rsi
+                    add rdi, r8
+                    add rsi, r8
+                    cmp rdi, r10
+                    jle .checkCol
 
-                    .checkCols:
-                        cmp rsi, r10
-                        jg .endCheckCols
+                    .matchCol:
+                        mov rdi, r13
+                        mov rsi, r14
+                        inc rsi
+                        dec rdi
+                        cmp rdi, r9
+                        je .foundColRef
 
-                        mov al, [rsi]
-                        cmp [rdi], al
-                        jne .noMatchCols
+                        cmp rsi, r11
+                        je .foundColRef
+                        jmp .endCheckCol
 
-                        add rdi, r8
-                        add rsi, r8
-                        jmp .checkCols
+                    .foundColRef:int3
+                        mov r15, r14
 
-                    .endCheckCols:
-                        pop rsi
-                        pop rdi
+                        ; Check middle.
+                        lea rax, [r11 + 1]
+                        sub rax, r15
+                        cmp rdx, rax
+                        jge .endGetCols
 
-                    .matchCols:
-                        dec rsi
-                        inc rdi
-                        lea r14, [r9 + r8]
-                        cmp rdi, r14
-                        jge .foundRefCol
-                        jmp .endWhileRefCols
+                .endCheckCol:
+                    mov rdi, r13
+                    inc rdi
+                    jmp .getCols
 
-                    .noMatchCols:
-                        pop rsi
-                        pop rdi
-                        jmp .whileRefCols
+            .endGetCols:
+                cmp r15, r9
+                je .getRows
 
-                .endWhileRefCols:
-
-                .foundRefCol:
-                    mov r11, rdx
+                sub r15, r9
+                add r12, r15
 int3
-            .endCheckRefCols:
+
+            .getRows:
+            .endGetRows:
+
+            .getNextImg:
+                mov rdi, r10
+                inc rdi
+                jmp .whileImg
             
-            add r12, r11
-
-            ; Check for last image.
-            test r13, r13
-            jnz .endWhileImage
-
-            mov rdi, r10
-            add rdi, 3
-            jmp .whileImage
-
-        .endWhileImage:
+        .endWhileImg:
             mov rax, r12
 
         .end:
+            pop r15
+            pop r14
+            pop r13
             pop r12
             leave
             ret
