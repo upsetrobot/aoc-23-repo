@@ -6,7 +6,7 @@
 ;           image.
 ;
 ; @file         solution.nasm
-; @date         18 Dec 2023
+; @date         20 Dec 2023
 ; @author       upsetrobot
 ; @copyright    Copyright (c) 2023
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -125,15 +125,6 @@ section .text
         push r15
 
         xor r12, r12                ; sum.
-        xor rcx, rcx
-        not rcx
-        push rdi
-        cld
-        mov al, 0xa
-        repne scasb
-        not rcx
-        pop rdi
-        mov r8, rcx                 ; line_len.
         
         .whileImg:
             cmp byte [rdi], 0
@@ -142,9 +133,19 @@ section .text
             cmp byte [rdi], 0xa
             jne .setupImg
 
-            add rdi, 2
+            inc rdi
 
             .setupImg:
+                xor rcx, rcx
+                not rcx
+                push rdi
+                cld
+                mov al, 0xa
+                repne scasb
+                not rcx
+                pop rdi
+                mov r8, rcx                 ; line_len.
+
                 mov r9, rdi                 ; top_left.
                 add rdi, r8
 
@@ -164,69 +165,136 @@ section .text
                     dec rdi
                     mov r10, rdi            ; bottom_right.
 
+            ; Check columns.
             mov rdi, r9            
-            lea r11, [rdi + r8 - 2]         ; end_cols.
-            mov r15, rdi                    ; cols.
-            xor rdx, rdx                    ; cols.
+            lea r11, [rdi + r8 - 2]         ; last_col.
+            xor rdx, rdx                    ; cols_left.
+            xor r13, r13
+            xor r14, r14
+            xor r15, r15                    ; col_score.            
 
-            ; Better to start in middle, then go left or right. ugh.
-
-            .getCols:
+            .findColRef:
                 cmp rdi, r11
-                je .endGetCols
+                je .colRefNotFound
 
                 mov rsi, rdi
                 inc rsi
-                inc rdx
-                mov r13, rdi                ; top.
-                mov r14, rsi                ; top2.
+                mov r13, rdi                ; curr_left.
+                mov r14, rsi                ; curr_right.
+                xor rcx, rcx                ; curr_score.
+                push rdi
 
-                .checkCol:
-                    mov al, [rdi]
-                    cmp al, [rsi]
-                    jne .endCheckCol
+                .checkCols:
+                    cmp rdi, r9
+                    jl .colRefFound
 
-                    add rdi, r8
-                    add rsi, r8
-                    cmp rdi, r10
-                    jle .checkCol
+                    cmp rsi, r11
+                    jg .colRefFound
 
-                    .matchCol:
+                    .checkCol:
+                        cmp rdi, r10
+                        jg .endCheckCol
+
+                        mov al, [rsi]
+                        cmp al, [rdi]
+                        jne .endCheckCols
+
+                        add rdi, r8
+                        add rsi, r8
+                        jmp .checkCol
+
+                    .endCheckCol:
+                        inc rcx
+                        dec r13
+                        inc r14
                         mov rdi, r13
                         mov rsi, r14
-                        inc rsi
-                        dec rdi
-                        cmp rdi, r9
-                        je .foundColRef
+                        jmp .checkCols
 
-                        cmp rsi, r11
-                        je .foundColRef
-                        jmp .endCheckCol
+                    .colRefFound:
+                        cmp rcx, r15
+                        jle .endCheckCols
 
-                    .foundColRef:int3
-                        mov r15, r14
+                        .updateScore:
+                        mov r15, rcx
+                        mov rdx, [rsp]
+                        sub rdx, r9
+                        inc rdx
 
-                        ; Check middle.
-                        lea rax, [r11 + 1]
-                        sub rax, r15
-                        cmp rdx, rax
-                        jge .endGetCols
-
-                .endCheckCol:
-                    mov rdi, r13
+                .endCheckCols:
+                    pop rdi
                     inc rdi
-                    jmp .getCols
+                    jmp .findColRef
 
-            .endGetCols:
-                cmp r15, r9
-                je .getRows
+            .colRefNotFound:
+                add r12, rdx
+                cmp rdx, 0
+                jg .getNextImg
 
-                sub r15, r9
-                add r12, r15
-int3
+            ; Check rows.
+            mov rdi, r9
+            mov rsi, rdi
+            add rsi, r8
+            xor rdx, rdx                    ; rows_above.
+            xor r11, r11                    ; highest_row_score.
+            xor r13, r13                    ; curr_high_row.
+            xor r14, r14                    ; curr_low_row.
+            xor r15, r15                    ; row_score.            
 
-            .getRows:
-            .endGetRows:
+            .findRowRef:
+                cmp rsi, r10
+                jg .rowRefNotFound
+
+                mov r13, rdi
+                mov r14, rsi
+                xor rax, rax                ; curr_score.
+                push rdi
+                inc rdx
+
+                .checkRows:
+                    cmp rdi, r9
+                    jl .rowRefFound
+
+                    cmp rsi, r10
+                    jg .rowRefFound
+
+                    .checkRow:
+                        mov rcx, r8
+                        cld
+                        repe cmpsb
+                        test rcx, rcx
+                        jnz .endCheckRows
+
+                    .endCheckRow:
+                        inc rax
+                        sub r13, r8
+                        add r14, r8
+                        mov rdi, r13
+                        mov rsi, r14
+                        jmp .checkRows
+
+                    .rowRefFound:
+                        cmp rax, r15
+                        jle .endCheckRows
+
+                        .updateRowScore:
+                        mov r15, rax
+                        mov r11, rdx
+
+                .endCheckRows:
+                    pop rdi
+                    add rdi, r8
+                    mov rsi, rdi
+                    add rsi, r8
+                    jmp .findRowRef
+
+            .rowRefNotFound:
+                mov rax, r11
+                mov rcx, 100
+                cqo
+                mul rcx
+                add r12, rax
+                add rbx, rax
 
             .getNextImg:
                 mov rdi, r10
