@@ -281,6 +281,7 @@ section .text
     ;
     ; @return   long long   Signed integer if found; Returns 
     ;                       0x7FFFFFFFFFFFFFFF if no number was found.
+    ;                       Moves rdi to last digit.
     ;
     ; @todo     Find better solution.
     ; @todo     Review and improve implementation.

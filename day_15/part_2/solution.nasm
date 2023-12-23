@@ -1,11 +1,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Advent of Code Christmas Challenge Day 15 - Part I
+; Advent of Code Christmas Challenge Day 15 - Part II
 ;
 ; @brief    Implement a given hash algorithm and hash each string and return 
 ;           the sum of the hashes.
 ;
+;           Now, make a hashmap of all labels and store values when the `=` 
+;           operator is encountered and remove them when the `-` operator is 
+;           found, then sum the products of each hashmap location (+1), 
+;           slot location, and value.
+;
 ; @file         solution.nasm
-; @date         22 Dec 2023
+; @date         23 Dec 2023
 ; @author       upsetrobot
 ; @copyright    Copyright (c) 2023
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -25,8 +30,9 @@
 
 struc node
 
-    next:   resq    1
-    val:    resq    1
+    .nxt:   resq    1
+    .val:   resq    1
+    .lbl:   resb    1
 
 endstruc
 
@@ -131,49 +137,109 @@ section .text
 
         ; Allocate hash array.
         push rdi
-        mov rdi, 0x255
+        mov rdi, 256
         shl rdi, 3
         call memAlloc
 
         pop rdi
         mov r13, rax                    ; arr.
 
+        ; Zero memory.
+        push rdi
+        push rcx
+        mov rdi, r13
+        lea rcx, [256*8]
+        
+        .loop:
+            mov byte [rdi], 0
+            inc rdi
+            loop .loop
+
+        pop rcx
+        pop rdi
+
         .while:
             cmp byte [rdi], 0
             je .endWhile
-            
-            cmp byte [rdi], ','
-            jne .cont
 
-            inc rdi
+            mov r14, rdi                ; label.
+            call hash                   ; Updates rdi; goes to operator.
 
-            .cont:
-                call hash               ; Updates rdi; goes to comma.
+            mov r15, rax                ; hash.
 
             ; Have hash of label. Now execute operation.
             cmp byte [rdi], '='
             je .equals
 
-            ; Remove node.
             .minus:
+                mov byte [rdi], 0
+                inc rdi
                 push rdi
-                mov rsi, arr
+                mov rdi, r14
+                mov rsi, r13
+                mov rdx, r15
                 call removeHashmap
                 pop rdi
+                jmp .continue
 
             .equals:
+                mov byte [rdi], 0
+                inc rdi
                 push rdi
-                mov rsi, arr
-                mov rdx, rax
+                call scanNumber
+
+                pop rdi
+                
+                inc rdi
+                push rdi
+                mov rdi, r14
+                mov rsi, r13
+                mov rdx, r15
+                mov rcx, rax
                 call addHashmap
                 pop rdi
 
-            
-
-            add r12, rax
-            jmp .while
+            .continue:
+                inc rdi
+                jmp .while
 
         .endWhile:
+
+        .focusPower:
+            xor r8, r8
+
+            .for:
+                cmp r8, 256
+                je .endFor
+
+                lea rdi, [r13 + r8*8]
+                mov rdi, [rdi]
+                xor r9, r9                  ; slot_num.
+                inc r9
+
+                .whileNodes:
+                    test rdi, rdi
+                    jz .endWhileNodes
+
+                    lea rax, [r8 + 1]       ; box_num.
+                    mov rcx, r9
+                    cqo
+                    mul rcx
+                    mov rcx, [rdi + node.val]
+                    cqo
+                    mul rcx
+                    add r12, rax
+
+                    inc r9
+                    mov rdi, [rdi + node.nxt]
+                    jmp .whileNodes
+
+                .endWhileNodes:
+
+                inc r8
+                jmp .for
+
+            .endFor:
 
         mov rax, r12
 
@@ -235,6 +301,235 @@ section .text
             ret
 
     ; End hash.
+
+
+    ; int addHashMap(char* label, void* arr, size_t hash, size_t val);
+    ;
+    ; @brief    Creates a new node and adds it to the hashmap.
+    ;
+    ; @return   int     FUNC_SUCCESS if node added, else FUNC_FAILURE.
+    ;
+    addHashmap:
+        push rbp
+        mov rbp, rsp
+        push r12
+
+        test rsi, rsi
+        jz .err
+
+        push rdi
+        push rsi
+        push rdx
+        push rcx
+        call strLen
+
+        pop rcx
+        pop rdx
+        pop rsi
+        pop rdi
+
+        mov r8, rax                             ; str_len.
+
+        .checkForNode:
+            lea r10, [rsi + rdx*8]
+            cmp qword [r10], 0
+            je .createNewNode
+
+            mov r10, [r10]
+
+            .checkNodes:
+                test r10, r10
+                jz .createNewNode
+
+                ; Need to get greater of two str_lens.
+                push rdi
+                push rsi
+                push rdx
+                push rcx
+                lea rdi, [r10 + node.lbl]
+                call strLen
+
+                pop rcx
+                pop rdx
+                pop rsi
+                pop rdi
+
+                cmp rax, r8
+                jg .cont
+
+                mov rax, r8
+
+                .cont:
+
+                push rdi
+                push rsi
+                push rcx
+                lea rsi, [r10 + node.lbl]
+                mov rcx, rax
+                cld
+                repe cmpsb
+                mov r11, rcx
+                pop rcx
+                pop rsi
+                pop rdi
+                test r11, r11
+                jz .foundNode               ; Already in there.
+
+                mov r10, [r10 + node.nxt]
+                jmp .checkNodes
+
+                .foundNode:
+                    mov [r10 + node.val], rcx
+                    jmp .err
+
+        .createNewNode:
+            push rdi
+            push rsi
+            push rdx
+            push rcx
+            push r8
+            mov rdi, node_size
+            add rdi, r8
+            inc rdi
+            call memAlloc
+
+            pop r8
+            pop rcx
+            pop rdx
+            pop rsi
+            pop rdi
+
+            mov r9, rax                         ; new_node.
+
+            mov qword [r9 + node.nxt], 0
+            mov [r9 + node.val], rcx
+            
+            push rdi
+            push rsi
+            push rcx
+            mov rsi, rdi
+            lea rdi, [r9 + node.lbl]
+            mov rcx, r8
+            cld
+            rep movsb
+            mov byte [rdi], 0
+            pop rcx
+            pop rsi
+            pop rdi
+                        
+        .placeNode:
+            lea r10, [rsi + rdx*8]
+
+            cmp qword [r10], 0
+            je .addToArr
+
+            mov r10, [r10]
+
+            .getFinalNode:
+                cmp qword [r10], 0
+                je .addToArr
+
+                mov r10, [r10]
+                jmp .getFinalNode
+
+            .addToArr:
+                mov [r10], r9
+
+        .added:
+            xor rax, rax
+            jmp .end
+
+        .err:
+            or rax, FUNC_FAILURE
+
+        .end:
+            leave
+            ret
+    
+    ; End addHashmap.
+
+
+    ; int removeHashmap(char* label, void* arr, size_t hash);
+    ;
+    ; @brief    Searches the hashmap for the label and removes node if found.
+    ;
+    ; @return   int     FUNC_SUCCESS if node found and removed; else 
+    ;                   FUNC_FAILURE.
+    removeHashmap:
+        push rbp
+        mov rbp, rsp
+
+        test rsi, rsi
+        jz .err
+
+        lea r8, [rsi + rdx*8]                 ; last_node.
+        mov rsi, [rsi + rdx*8]                ; curr_node.
+        
+        .loop:
+            test rsi, rsi
+            jz .err
+
+            push rdi
+            call strLen
+
+            pop rdi
+            mov rcx, rax                    ; str_len.
+
+            ; Need to get greater of two str_lens.
+            push rdi
+            push rsi
+            push rdx
+            push rcx
+            lea rdi, [rsi + node.lbl]
+            call strLen
+
+            pop rcx
+            pop rdx
+            pop rsi
+            pop rdi
+
+            cmp rax, rcx
+            jle .cont
+
+            mov rcx, rax
+
+            .cont:
+
+            push rdi
+            push rsi
+            lea rsi, [rsi + node.lbl]
+            cld
+            repe cmpsb
+            pop rsi
+            pop rdi
+
+            test rcx, rcx
+            jnz .notFound
+
+            .found:
+                mov r9, [rsi + node.nxt]
+                mov [r8 + node.nxt], r9
+
+                ; Not gonna worry about dealloc.
+                jmp .removed
+
+            .notFound:
+                mov r8, rsi
+                mov rsi, [rsi + node.nxt]
+                jmp .loop
+
+        .removed:
+            xor rax, rax
+            jmp .end
+
+        .err:
+            or rax, FUNC_FAILURE
+
+        .end:
+            leave
+            ret
+    
+    ; End removeHashmap.
 
 
 ; End of file.

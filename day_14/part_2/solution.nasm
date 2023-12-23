@@ -191,7 +191,13 @@ section .text
             ;
             ; How to do you programmatically figure this out?
             ; I can do it by hand; maybe you need to compare to each previous 
-            ; until a solution is figured.
+            ; until a pattern is found somehow.
+            ; You would record each value, then go through each one looking 
+            ; for the same value, then check each one after it for the next 
+            ; value. If match, then save position, and continue till you get to 
+            ; yourself again. Then, do the math part. It could be done.
+            ; 
+            ; I don't feel like coding that out right now.
 
             push rdi
             push rsi
