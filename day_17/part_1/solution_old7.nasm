@@ -5,7 +5,9 @@
 ;           right to bottom left while only being able to move 3 consecutive 
 ;           step in one direction at most at one time.
 ;
-;           YAYYYYY. Finally did it.  Runs in under 1 minute.
+;           This idea should work, but now I feel like it would be easier to 
+;           apply this idea to my regular pathfinder algorithm instead of 
+;           using a Dysktra's nightmare. Either way, this way will be faster.
 ;
 ; @file         solution.nasm
 ; @date         28 Dec 2023
@@ -271,7 +273,7 @@ section .text
         ; rbx = shortest_path.
                 
         ; Do visited loop.
-        .while:
+        .while:int3
 
             ; Exit criteria? Uh, when bottom right has been visited from top 
             ; and left?
@@ -705,64 +707,109 @@ section .text
         xor r14, r14
         mov ebx, edx            ; tmp_path.
 
-        cmp r12, 4
-        je .end
-
-        mov r13, rsi        ; tmp_pos.
-        inc r13
-
-        ; Check existence.
-        cmp r13, rdi
-        jb .end
-
-        cmp r13, r10
-        ja .end
-
-        cmp byte [r13], NEWLINE
-        je .end
-
-        cmp byte [r13], NULL
-        je .end
-
-        mov r14b, [r13]     ; tmp_addend.
-        sub r14b, '0'
-
-        add ebx, r14d
-
-        mov r15, r13
-        sub r15, rdi
-        shl r15, 6          ; tmp_memo_offset.
-
-        cmp r12, 1
-        je .steps1
-
-        cmp r12, 2
-        je .steps2
-
-        cmp r12, 3
-        je .steps3
-
-        .steps1:
-            cmp byte [r11 + r15 + memo.right0_visited], 0
+        .firstNeighbor:
+            cmp r12, MAX_STEPS
             je .end
+
+            mov r13, rsi        ; tmp_pos.
+            add r13, 1
+
+            ; Check existence.
+            cmp r13, rdi
+            jb .end
+
+            cmp r13, r10
+            ja .end
+
+            cmp byte [r13], NEWLINE
+            je .end
+
+            cmp byte [r13], NULL
+            je .end
+
+            mov r14b, [r13]     ; tmp_addend.
+            sub r14b, '0'
+
+            add ebx, r14d
+
+            mov r15, r13
+            sub r15, rdi
+            shl r15, 6          ; tmp_memo_offset.
+
+            cmp byte [r11 + r15 + memo.right0_visited], 0
+            je .secondNeighbor
 
             cmp ebx, [r11 + r15 + memo.right0_path]
-            jae .end
+            jae .secondNeighbor
 
             mov [r11 + r15 + memo.right0_path], ebx
-            jmp .end
 
-        .steps2:
-            cmp byte [r11 + r15 + memo.right1_visited], 0
+        .secondNeighbor:
+            cmp r12, 2
             je .end
 
+            mov r13, rsi        ; tmp_pos.
+            add r13, 2
+
+            ; Check existence.
+            cmp r13, rdi
+            jb .end
+
+            cmp r13, r10
+            ja .end
+
+            cmp byte [r13], NEWLINE
+            je .end
+
+            cmp byte [r13], NULL
+            je .end
+
+            mov r14b, [r13]     ; tmp_addend.
+            sub r14b, '0'
+
+            add ebx, r14d
+
+            mov r15, r13
+            sub r15, rdi
+            shl r15, 6          ; tmp_memo_offset.
+
+            cmp byte [r11 + r15 + memo.right1_visited], 0
+            je .thirdNeighbor
+
             cmp ebx, [r11 + r15 + memo.right1_path]
-            jae .end
+            jae .thirdNeighbor
 
             mov [r11 + r15 + memo.right1_path], ebx
-            jmp .end
 
-        .steps3:
+        .thirdNeighbor:
+            cmp r12, 1
+            je .end
+
+            mov r13, rsi        ; tmp_pos.
+            add r13, 3
+
+            ; Check existence.
+            cmp r13, rdi
+            jb .end
+
+            cmp r13, r10
+            ja .end
+
+            cmp byte [r13], NEWLINE
+            je .end
+
+            cmp byte [r13], NULL
+            je .end
+
+            mov r14b, [r13]     ; tmp_addend.
+            sub r14b, '0'
+
+            add ebx, r14d
+
+            mov r15, r13
+            sub r15, rdi
+            shl r15, 6          ; tmp_memo_offset.
+
             cmp byte [r11 + r15 + memo.right2_visited], 0
             je .end
 
@@ -802,64 +849,109 @@ section .text
         xor r14, r14
         mov ebx, edx            ; tmp_path.
 
-        cmp r12, 4
-        je .end
-
-        mov r13, rsi        ; tmp_pos.
-        dec r13
-
-        ; Check existence.
-        cmp r13, rdi
-        jb .end
-
-        cmp r13, r10
-        ja .end
-
-        cmp byte [r13], NEWLINE
-        je .end
-
-        cmp byte [r13], NULL
-        je .end
-
-        mov r14b, [r13]     ; tmp_addend.
-        sub r14b, '0'
-
-        add ebx, r14d
-
-        mov r15, r13
-        sub r15, rdi
-        shl r15, 6          ; tmp_memo_offset.
-
-        cmp r12, 1
-        je .steps1
-
-        cmp r12, 2
-        je .steps2
-
-        cmp r12, 3
-        je .steps3
-
-        .steps1:
-            cmp byte [r11 + r15 + memo.left0_visited], 0
+        .firstNeighbor:
+            cmp r12, MAX_STEPS
             je .end
+
+            mov r13, rsi        ; tmp_pos.
+            sub r13, 1
+
+            ; Check existence.
+            cmp r13, rdi
+            jb .end
+
+            cmp r13, r10
+            ja .end
+
+            cmp byte [r13], NEWLINE
+            je .end
+
+            cmp byte [r13], NULL
+            je .end
+
+            mov r14b, [r13]     ; tmp_addend.
+            sub r14b, '0'
+
+            add ebx, r14d
+
+            mov r15, r13
+            sub r15, rdi
+            shl r15, 6          ; tmp_memo_offset.
+
+            cmp byte [r11 + r15 + memo.left0_visited], 0
+            je .secondNeighbor
 
             cmp ebx, [r11 + r15 + memo.left0_path]
-            jae .end
+            jae .secondNeighbor
 
             mov [r11 + r15 + memo.left0_path], ebx
-            jmp .end
 
-        .steps2:
-            cmp byte [r11 + r15 + memo.left1_visited], 0
+        .secondNeighbor:
+            cmp r12, 2
             je .end
 
+            mov r13, rsi        ; tmp_pos.
+            sub r13, 2
+
+            ; Check existence.
+            cmp r13, rdi
+            jb .end
+
+            cmp r13, r10
+            ja .end
+
+            cmp byte [r13], NEWLINE
+            je .end
+
+            cmp byte [r13], NULL
+            je .end
+
+            mov r14b, [r13]     ; tmp_addend.
+            sub r14b, '0'
+
+            add ebx, r14d
+
+            mov r15, r13
+            sub r15, rdi
+            shl r15, 6          ; tmp_memo_offset.
+
+            cmp byte [r11 + r15 + memo.left1_visited], 0
+            je .thirdNeighbor
+
             cmp ebx, [r11 + r15 + memo.left1_path]
-            jae .end
+            jae .thirdNeighbor
 
             mov [r11 + r15 + memo.left1_path], ebx
-            jmp .end
 
-        .steps3:
+        .thirdNeighbor:
+            cmp r12, 1
+            je .end
+
+            mov r13, rsi        ; tmp_pos.
+            sub r13, 3
+
+            ; Check existence.
+            cmp r13, rdi
+            jb .end
+
+            cmp r13, r10
+            ja .end
+
+            cmp byte [r13], NEWLINE
+            je .end
+
+            cmp byte [r13], NULL
+            je .end
+
+            mov r14b, [r13]     ; tmp_addend.
+            sub r14b, '0'
+
+            add ebx, r14d
+
+            mov r15, r13
+            sub r15, rdi
+            shl r15, 6          ; tmp_memo_offset.
+
             cmp byte [r11 + r15 + memo.left2_visited], 0
             je .end
 
@@ -898,64 +990,112 @@ section .text
         xor r14, r14
         mov ebx, edx            ; tmp_path.
 
-        cmp r12, 4
-        je .end
-
-        mov r13, rsi        ; tmp_pos.
-        sub r13, r8
-
-        ; Check existence.
-        cmp r13, rdi
-        jb .end
-
-        cmp r13, r10
-        ja .end
-
-        cmp byte [r13], NEWLINE
-        je .end
-
-        cmp byte [r13], NULL
-        je .end
-
-        mov r14b, [r13]     ; tmp_addend.
-        sub r14b, '0'
-
-        add ebx, r14d
-
-        mov r15, r13
-        sub r15, rdi
-        shl r15, 6          ; tmp_memo_offset.
-
-        cmp r12, 1
-        je .steps1
-
-        cmp r12, 2
-        je .steps2
-
-        cmp r12, 3
-        je .steps3
-
-        .steps1:
-            cmp byte [r11 + r15 + memo.up0_visited], 0
+        .firstNeighbor:
+            cmp r12, MAX_STEPS
             je .end
+
+            mov r13, rsi        ; tmp_pos.
+            sub r13, r8
+
+            ; Check existence.
+            cmp r13, rdi
+            jb .end
+
+            cmp r13, r10
+            ja .end
+
+            cmp byte [r13], NEWLINE
+            je .end
+
+            cmp byte [r13], NULL
+            je .end
+
+            mov r14b, [r13]     ; tmp_addend.
+            sub r14b, '0'
+
+            add ebx, r14d
+
+            mov r15, r13
+            sub r15, rdi
+            shl r15, 6          ; tmp_memo_offset.
+
+            cmp byte [r11 + r15 + memo.up0_visited], 0
+            je .secondNeighbor
 
             cmp ebx, [r11 + r15 + memo.up0_path]
-            jae .end
+            jae .secondNeighbor
 
             mov [r11 + r15 + memo.up0_path], ebx
-            jmp .end
 
-        .steps2:
-            cmp byte [r11 + r15 + memo.up1_visited], 0
+        .secondNeighbor:
+            cmp r12, 2
             je .end
 
+            mov r13, rsi        ; tmp_pos.
+            sub r13, r8
+            sub r13, r8
+
+            ; Check existence.
+            cmp r13, rdi
+            jb .end
+
+            cmp r13, r10
+            ja .end
+
+            cmp byte [r13], NEWLINE
+            je .end
+
+            cmp byte [r13], NULL
+            je .end
+
+            mov r14b, [r13]     ; tmp_addend.
+            sub r14b, '0'
+
+            add ebx, r14d
+
+            mov r15, r13
+            sub r15, rdi
+            shl r15, 6          ; tmp_memo_offset.
+
+            cmp byte [r11 + r15 + memo.up1_visited], 0
+            je .thirdNeighbor
+
             cmp ebx, [r11 + r15 + memo.up1_path]
-            jae .end
+            jae .thirdNeighbor
 
             mov [r11 + r15 + memo.up1_path], ebx
-            jmp .end
 
-        .steps3:
+        .thirdNeighbor:
+            cmp r12, 1
+            je .end
+
+            mov r13, rsi        ; tmp_pos.
+            sub r13, r8
+            sub r13, r8
+            sub r13, r8
+
+            ; Check existence.
+            cmp r13, rdi
+            jb .end
+
+            cmp r13, r10
+            ja .end
+
+            cmp byte [r13], NEWLINE
+            je .end
+
+            cmp byte [r13], NULL
+            je .end
+
+            mov r14b, [r13]     ; tmp_addend.
+            sub r14b, '0'
+
+            add ebx, r14d
+
+            mov r15, r13
+            sub r15, rdi
+            shl r15, 6          ; tmp_memo_offset.
+
             cmp byte [r11 + r15 + memo.up2_visited], 0
             je .end
 
@@ -994,64 +1134,112 @@ section .text
         xor r14, r14
         mov ebx, edx            ; tmp_path.
 
-        cmp r12, 4
-        je .end
-
-        mov r13, rsi        ; tmp_pos.
-        add r13, r8
-
-        ; Check existence.
-        cmp r13, rdi
-        jb .end
-
-        cmp r13, r10
-        ja .end
-
-        cmp byte [r13], NEWLINE
-        je .end
-
-        cmp byte [r13], NULL
-        je .end
-
-        mov r14b, [r13]     ; tmp_addend.
-        sub r14b, '0'
-
-        add ebx, r14d
-
-        mov r15, r13
-        sub r15, rdi
-        shl r15, 6          ; tmp_memo_offset.
-
-        cmp r12, 1
-        je .steps1
-
-        cmp r12, 2
-        je .steps2
-
-        cmp r12, 3
-        je .steps3
-
-        .steps1:
-            cmp byte [r11 + r15 + memo.down0_visited], 0
+        .firstNeighbor:
+            cmp r12, MAX_STEPS
             je .end
+
+            mov r13, rsi        ; tmp_pos.
+            add r13, r8
+
+            ; Check existence.
+            cmp r13, rdi
+            jb .end
+
+            cmp r13, r10
+            ja .end
+
+            cmp byte [r13], NEWLINE
+            je .end
+
+            cmp byte [r13], NULL
+            je .end
+
+            mov r14b, [r13]     ; tmp_addend.
+            sub r14b, '0'
+
+            add ebx, r14d
+
+            mov r15, r13
+            sub r15, rdi
+            shl r15, 6          ; tmp_memo_offset.
+
+            cmp byte [r11 + r15 + memo.down0_visited], 0
+            je .secondNeighbor
 
             cmp ebx, [r11 + r15 + memo.down0_path]
-            jae .end
+            jae .secondNeighbor
 
             mov [r11 + r15 + memo.down0_path], ebx
-            jmp .end
 
-        .steps2:
-            cmp byte [r11 + r15 + memo.down1_visited], 0
+        .secondNeighbor:
+            cmp r12, 2
             je .end
 
+            mov r13, rsi        ; tmp_pos.
+            add r13, r8
+            add r13, r8
+
+            ; Check existence.
+            cmp r13, rdi
+            jb .end
+
+            cmp r13, r10
+            ja .end
+
+            cmp byte [r13], NEWLINE
+            je .end
+
+            cmp byte [r13], NULL
+            je .end
+
+            mov r14b, [r13]     ; tmp_addend.
+            sub r14b, '0'
+
+            add ebx, r14d
+
+            mov r15, r13
+            sub r15, rdi
+            shl r15, 6          ; tmp_memo_offset.
+
+            cmp byte [r11 + r15 + memo.down1_visited], 0
+            je .thirdNeighbor
+
             cmp ebx, [r11 + r15 + memo.down1_path]
-            jae .end
+            jae .thirdNeighbor
 
             mov [r11 + r15 + memo.down1_path], ebx
-            jmp .end
 
-        .steps3:
+        .thirdNeighbor:
+            cmp r12, 1
+            je .end
+
+            mov r13, rsi        ; tmp_pos.
+            add r13, r8
+            add r13, r8
+            add r13, r8
+
+            ; Check existence.
+            cmp r13, rdi
+            jb .end
+
+            cmp r13, r10
+            ja .end
+
+            cmp byte [r13], NEWLINE
+            je .end
+
+            cmp byte [r13], NULL
+            je .end
+
+            mov r14b, [r13]     ; tmp_addend.
+            sub r14b, '0'
+
+            add ebx, r14d
+
+            mov r15, r13
+            sub r15, rdi
+            shl r15, 6          ; tmp_memo_offset.
+
             cmp byte [r11 + r15 + memo.down2_visited], 0
             je .end
 
