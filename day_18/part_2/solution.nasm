@@ -1,5 +1,5 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; Advent of Code Christmas Challenge Day 18 - Part I
+; Advent of Code Christmas Challenge Day 18 - Part II
 ;
 ; @brief    We have to calculate the area of the perimeter formed by the 
 ;           given commands to move in different direction.
@@ -11,8 +11,12 @@
 ;           formula (aka Shoelace formula). I will probably pick the first 
 ;           point as the origin.
 ;
+;           This time we use the first five digits of the hex code for the 
+;           distance and the last digit for the direction where 0 is R, 1 is 
+;           D, 2 is L, and 3 is U.
+;
 ; @file         solution.nasm
-; @date         28 Dec 2023
+; @date         29 Dec 2023
 ; @author       upsetrobot
 ; @copyright    Copyright (c) 2023
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -29,16 +33,10 @@
 %define EXIT_FAILURE    -1
 
 %define NULL            0
-
 %define NEWLINE         10
 
 %define TRUE    1
 %define FALSE   0
-
-%define RIGHT   0b0001
-%define DOWN    0b0010
-%define LEFT    0b0100
-%define UP      0b1000
 
 %define MUL_256_SHIFTER 8
 
@@ -54,9 +52,6 @@ section .rodata
     
     err_main                db  "Error Main", 10, 0
     err_main_len            equ $ - err_main
-
-    err_getSolution         db  "Error getSolution", 10, 0
-    err_getSolution_len     equ $ - err_getSolution
     
     msg                     db  "Solution: ", 0
 
@@ -162,13 +157,15 @@ section .text
             call getLine            ; Leaves rdi and returns nxt_ln or -1.
 
             mov rsi, rax            ; nxt_ln.
+
+            ; Need to get last char.
             push rdi
             push rsi
             push r8
             push r9
             push r10
             push r11
-            call scanNumber
+            call strLen
 
             pop r11
             pop r10
@@ -177,21 +174,45 @@ section .text
             pop rsi
             pop rdi
 
+            lea rcx, [rdi + rax - 2]
+            mov dl, [rcx]
+            mov byte [rcx], NULL
+            add rdi, 4
+
+            push rdi
+            push rsi
+            push rdx
+            push rcx
+            push r8
+            push r9
+            push r10
+            push r11
+            call scanHex
+
+            pop r11
+            pop r10
+            pop r9
+            pop r8
+            pop rcx
+            pop rdx
+            pop rsi
+            pop rdi            
+
             ; rax = num_to_move.
             mov r12, r10            ; x2 = x1.
             mov r13, r11            ; y2 = y1.
             add r14, rax
             
-            cmp byte [rdi], 'R'
+            cmp dl, '0'
             je .right
 
-            cmp byte [rdi], 'L'
+            cmp dl, '2'
             je .left
 
-            cmp byte [rdi], 'U'
+            cmp dl, '3'
             je .up
 
-            cmp byte [rdi], 'D'
+            cmp dl, '1'
             je .down
 
             int3
@@ -254,6 +275,150 @@ section .text
             ret
 
     ; End getSolution.
+
+
+    ; size_t scanHex(char* str);
+    ;
+    ; @brief    Scans string for hex number and returns the number. 
+    ;
+    ; @return   size_t  Hex number if found; otherwise 0.
+    ;
+    scanHex:
+        push rbp
+        mov rbp, rsp
+
+        xor rax, rax
+        test rdi, rdi
+        jz .end
+
+        .scanForward:
+            cmp byte [rdi], NULL
+            je .endScanForward
+
+            cmp byte [rdi], '0'
+            jl .scanNext
+
+            cmp byte [rdi], '9'
+            jle .endScanForward
+
+            cmp byte [rdi], 'A'
+            jl .scanNext
+
+            cmp byte [rdi], 'F'
+            jle .endScanForward
+
+            cmp byte [rdi], 'a'
+            jl .scanNext
+
+            cmp byte [rdi], 'f'
+            jle .endScanForward
+
+            .scanNext:
+                inc rdi
+                jmp .scanForward
+        
+        .endScanForward:
+
+        cmp byte [rdi], NULL
+        je .end
+
+        xor rcx, rcx
+        push rdi
+
+        .countDigits:
+            cmp byte [rdi], NULL
+            je .endCountDigits
+
+            cmp byte [rdi], '0'
+            jl .endCountDigits
+
+            cmp byte [rdi], '9'
+            jle .hex
+
+            cmp byte [rdi], 'A'
+            jl .endCountDigits
+
+            cmp byte [rdi], 'F'
+            jle .hex
+
+            cmp byte [rdi], 'a'
+            jl .endCountDigits
+
+            cmp byte [rdi], 'f'
+            jg .endCountDigits
+
+            .hex:
+                inc rcx
+                inc rdi
+                jmp .countDigits
+        
+        .endCountDigits:
+
+        pop rdi
+        
+        ; For now, only scan up to 16 digits.
+        cmp rcx, 16
+        jle .setup
+
+        mov rcx, 16
+
+        .setup:
+            xor rdx, rdx
+
+        .translate:
+            test rcx, rcx
+            jz .end
+
+            mov dl, [rdi]
+            cmp dl, '9'
+            jle .num
+
+            cmp dl, 'F'
+            jle .cap
+
+            cmp dl, 'f'
+            jle .lower
+
+            int3
+
+            .num:
+                sub dl, '0'
+                add rax, rdx
+                cmp rcx, 1
+                je .end
+
+                shl rax, 4
+                jmp .translateNext
+
+            .cap:
+                sub dl, 'A'
+                add dl, 10
+                add rax, rdx
+                cmp rcx, 1
+                je .end
+
+                shl rax, 4
+                jmp .translateNext
+
+            .lower:
+                sub dl, 'a'
+                add dl, 10
+                add rax, rdx
+                cmp rcx, 1
+                je .end
+
+                shl rax, 4
+
+            .translateNext:
+                dec rcx
+                inc rdi
+                jmp .translate
+
+        .end:
+            leave
+            ret
+
+    ; End scanHex.
 
 
 ; End of file.
