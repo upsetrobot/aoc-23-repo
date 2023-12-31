@@ -250,6 +250,9 @@ section .text
         inc rax                     ; Account for corners.
         
         .end:
+            pop r14
+            pop r13
+            pop r12
             leave
             ret
 

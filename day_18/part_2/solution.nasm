@@ -271,6 +271,9 @@ section .text
         inc rax                     ; Account for corners.
         
         .end:
+            push r14
+            push r13
+            push r12
             leave
             ret
 
