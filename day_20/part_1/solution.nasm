@@ -57,6 +57,13 @@ struc component
 
 endstruc
 
+; Node for queue structure.
+struc node
+    .next:    resq    1
+    .val:     resq    1
+
+endstruc
+
 
 ; Global constants.
 section .rodata
@@ -74,7 +81,8 @@ section .rodata
 ; Global uninitialized variables.
 section .bss
 
-    ; None.
+    head:    resq    1
+    tail:    resq    1
 
 
 ; Global initialized variables.
@@ -786,10 +794,76 @@ section .text
     ; End broadcaster.
 
 
+    ; void enqueue(void* obj);
+    ;
+    ; @brief     Adds the given object to the queue.
+    ;
+    ; @param    obj    Pointer to object to add.
+    ;
     enqueue:
+        push rbp
+        mov rbp, rsp
+
+        push rdi
+        mov rdi, node_size
+        call memAlloc
+
+        pop rdi
+
+        mov rsi, [head]
+        mov [head], rax
+        mov [rax + node.next], rsi
+        mov [rax + node.val], rdi
+
+        test rsi, rsi
+        jnz .end
+
+        mov [tail], rax
+
+        .end:
+            leave
+            ret
+
+    ; End enqueue.
 
 
+    ; obj* dequeue();
+    ;
+    ; @brief     Removes a node from the end of the queue and returns it.
+    ;            Does not deallocate nodes.
+    ;
+    ; @return    obj*    Pointer to object that was dequeued. NULL if no objects left.
+    ;
     dequeue:
+        push rbp
+        mov rbp, rsp
+
+        mov rdi, [head]
+        mov rax, [tail]
+
+        test rdi, rax
+        jz .last
+
+        .while:
+            cmp [rdi + node.next], rax
+            je .found
+
+            mov rdi, [rdi + node.next]
+            jmp .while
+
+        .found:
+            mov [tail], rdi
+            mov qword [rdi + node.next], NULL
+
+        .last:
+            mov [head], NULL
+            mov [tail], NULL        
+
+        .end:
+            leave
+            ret
+
+    ; End dequeue.
 
 
 ; End of file.
